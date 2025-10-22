@@ -48,12 +48,13 @@ class DateRange(BaseModel):
 # -----------------------------------
 @app.get("/")
 def get_jira_report():
-    try:
-        start_date = "2025-09-01"
-        end_date = "2025-10-01"
-        return generate_report(start_date, end_date)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "report generation started"}
+    # try:
+    #     start_date = "2025-09-01"
+    #     end_date = "2025-10-01"
+    #     return generate_report(start_date, end_date)
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=str(e))
 
 
 # -----------------------------------
