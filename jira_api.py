@@ -4,6 +4,8 @@ from datetime import datetime
 import logging
 import dateutil.parser
 from dateutil.parser import isoparse
+import pandas as pd
+
 
 # === 調整點: 移除 Colab 專用 userdata，改用全局 GROUPS ===
 GROUPS = {

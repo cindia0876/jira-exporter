@@ -3,10 +3,10 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, validator
 import pandas as pd
-from jira_api import JiraAPI, GROUPS
-from utils import project_data_to_df, filter_df_by_date, user_data_to_df
+from jira_api import JiraAPI, GROUPS,project_data_to_df, filter_df_by_date, user_data_to_df
 from dotenv import load_dotenv
 from google.cloud import storage, pubsub_v1
+import uvicorn
 
 load_dotenv()
 domain = os.getenv("JIRA_DOMAIN")
@@ -46,7 +46,7 @@ class DateRange(BaseModel):
 # -----------------------------------
 # GET API: 固定區間，排程呼叫
 # -----------------------------------
-@app.get("/jira-report")
+@app.get("/")
 def get_jira_report():
     try:
         start_date = "2025-09-01"
@@ -114,3 +114,7 @@ def generate_report(start_date: str, end_date: str):
     future.result()  # 確保訊息送出
 
     return {"message": "Report generated", "filename": filename}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
