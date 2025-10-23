@@ -72,15 +72,15 @@ class DateRange(BaseModel):
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
-    Jira = get_jira_api()
+    jira_api = get_jira_api()
     print(f"Fetching issues from {start_date} to {end_date}")
 
     print(f"Step 1: 取得 issues")
-    issues = Jira.get_active_issues(start_date, end_date)
+    issues = jira_api.get_active_issues(start_date, end_date)
     print(f"[INFO] 總共取得 {len(issues)} 筆 active issues")
 
     print(f"Step 2: issues 轉成 projects 結構")
-    projects = Jira.trace_project_info_by_issues(issues)
+    projects = jira_api.trace_project_info_by_issues(issues)
     print(f"[INFO] 對應到 {len(projects)} 個 project")
 
     
@@ -88,11 +88,11 @@ def generate_report(start_date: str, end_date: str):
     user_data = {}
     for project in projects:
         for issue in project["issues"]:
-            issue["worklogs"] = Jira.get_worklog_from_issue_id(issue["key"])
+            issue["worklogs"] = jira_api.get_worklog_from_issue_id(issue["key"])
             for wl in issue["worklogs"]:
                 user_id = wl.get("owner_id")
                 if user_id and user_id not in user_data:
-                    user_data[user_id] = Jira.get_user_group_info_from_user_id(user_id)
+                    user_data[user_id] = jira_api.get_user_group_info_from_user_id(user_id)
 
     print(f"Step 4: 轉換為 DataFrame")
     df = project_data_to_df(projects)
