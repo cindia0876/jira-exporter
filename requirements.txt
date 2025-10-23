@@ -2,6 +2,5 @@ requests
 pandas
 python-dateutil
 python-dotenv
-fastapi
-uvicorn
+flask
 google-cloud-storage

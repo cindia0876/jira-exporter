@@ -1,76 +1,34 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, validator
+from flask import Flask, request, jsonify
 import pandas as pd
-from jira_api import JiraAPI, GROUPS,project_data_to_df, filter_df_by_date, user_data_to_df
+from jira_api import JiraAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
 from dotenv import load_dotenv
-from google.cloud import storage, pubsub_v1
-import uvicorn
+from google.cloud import storage
 
 load_dotenv()
+
+# 取得環境變數
 domain = os.getenv("JIRA_DOMAIN")
-GCS_BUCKET = os.environ.get("GCS_BUCKET")
+email = os.getenv("JIRA_EMAIL")
+token = os.getenv("JIRA_TOKEN")
+GCS_BUCKET = os.getenv("GCS_BUCKET")
 
-if not domain:
-    raise RuntimeError("domain not set in .env")
-if not GCS_BUCKET:
-    raise RuntimeError("GCS_BUCKET not set in .env")
+if not domain or not email or not token or not GCS_BUCKET:
+    raise RuntimeError("Missing required environment variables")
 
+# Jira API 初始化
 Jira = JiraAPI(domain, email, token)
-app = FastAPI(title="Jira Report API")
 
-# === POST Body schema ===
-class DateRange(BaseModel):
-    start_date: str  # YYYY-MM-DD
-    end_date: str    # YYYY-MM-DD
-
-    @validator("start_date", "end_date")
-    def check_date_format(cls, v):
-        try:
-            datetime.strptime(v, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError("Date must be YYYY-MM-DD")
-        return v
-
-
-# -----------------------------------
-# GET API: 固定區間，排程呼叫
-# -----------------------------------
-@app.get("/")
-def get_jira_report():
-    try:
-        start_date = "2025-09-01"
-        end_date = "2025-10-01"
-        return generate_report(start_date, end_date)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# -----------------------------------
-# POST API: 自訂區間
-# -----------------------------------
-@app.post("/jira-report")
-def post_jira_report(daterange: DateRange):
-    try:
-        return generate_report(daterange.start_date, daterange.end_date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+# 建立 Flask App
+app = Flask(__name__)
 
 # -----------------------------------
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
-    # Step 1: 取得 issues
     issues = Jira.get_active_issues(start_date, end_date)
-
-    # Step 2: 轉成 projects 結構
     projects = Jira.trace_project_info_by_issues(issues)
-
-    # Step 3: 補 worklogs 與 user info
     user_data = {}
     for project in projects:
         for issue in project["issues"]:
@@ -79,26 +37,54 @@ def generate_report(start_date: str, end_date: str):
                 user_id = wl.get("owner_id")
                 if user_id and user_id not in user_data:
                     user_data[user_id] = Jira.get_user_group_info_from_user_id(user_id)
-
-    # Step 4: 轉 DataFrame
     df = project_data_to_df(projects)
     user_df = user_data_to_df(user_data)
     df = pd.merge(df, user_df, on="worklog_owner_id", how="left")
-
-    # Step 5: 篩選日期
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
     filtered_df = filter_df_by_date(df, start, end)
-
-    # Step 6: 儲存到 GCS
     filename = f"jiraReport_{start_date}_{end_date}.csv"
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_string(filtered_df.to_csv(index=False), "text/csv")
-
     return {"message": "Report generated", "filename": filename}
 
+# -----------------------------------
+# GET API: 固定區間
+# -----------------------------------
+@app.route("/", methods=["GET"])
+def get_jira_report():
+    try:
+        start_date = "2025-09-01"
+        end_date = "2025-10-01"
+        result = generate_report(start_date, end_date)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# -----------------------------------
+# POST API: 自訂區間
+# -----------------------------------
+@app.route("/jira-report", methods=["POST"])
+def post_jira_report():
+    try:
+        data = request.get_json()
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        for d in [start_date, end_date]:
+            try:
+                datetime.strptime(d, "%Y-%m-%d")
+            except Exception:
+                return jsonify({"error": "Date must be YYYY-MM-DD"}), 400
+        result = generate_report(start_date, end_date)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# -----------------------------------
+# 啟動 Flask
+# -----------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
