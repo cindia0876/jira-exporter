@@ -11,6 +11,7 @@ from google.cloud import storage
 # secret_name 格式: projects/{project_id}/secrets/{secret_id}
 # -----------------------------------
 def access_secret(secret_name: str, version: str = "latest") -> str:
+    print('access_secret secret_name',secret_name)
     client = secretmanager.SecretManagerServiceClient()
     name = f"{secret_name}/versions/{version}"
     response = client.access_secret_version(name=name)
@@ -21,11 +22,19 @@ def access_secret(secret_name: str, version: str = "latest") -> str:
 def load_jira_credentials():
     global jira_email, jira_token
     project_id = os.environ.get("GCP_PROJECT_NUM")
+    print('project_id',project_id)
+
     email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+    print('email_secret',email_secret)
+
     token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+    print('token_secret',token_secret)
 
     jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
+    print('jira_email',jira_email)
+
     jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
+    print('jira_token',jira_token)
 
 
 if not domain or not email or not token or not GCS_BUCKET:
