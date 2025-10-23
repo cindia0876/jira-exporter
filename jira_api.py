@@ -7,7 +7,6 @@ from dateutil.parser import isoparse
 import pandas as pd
 
 
-# === 調整點: 移除 Colab 專用 userdata，改用全局 GROUPS ===
 GROUPS = {
     "Executive Unit": [
         "AWS-TW","AWS-HK","GCP-TW","GWS-TW","Google-HK",
@@ -23,12 +22,10 @@ class JiraAPI:
         self.domain = domain
         self.email = email
         self.token = token
-        # === 調整點: 移除 Colab header 設定，改用通用 JSON header ===
         self.header = {
             "Accept": "application/json",
             "Content-Type": "application/json"
         }
-        # === 調整點: 移除 Colab 專用 auth 方式，改用 requests HTTPBasicAuth ===
         self.auth = HTTPBasicAuth(email, token)
 
     def get_all_projects(self, raw: bool = False) -> list[dict]:
@@ -124,7 +121,6 @@ class JiraAPI:
             return data
 
         user_labels = {"user_id": user_id}
-        # groups = load_groups()
         groups = GROUPS
 
         if "groups" in data and "items" in data["groups"]:
@@ -200,7 +196,6 @@ class JiraAPI:
                     parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
-            # if len(data["issues"]) < start_at + max_results:
             if len(data["issues"]) < max_results:
                 break
             start_at += max_results
@@ -384,7 +379,6 @@ def user_data_to_df(user_data: list[dict]) -> pd.DataFrame:
             "Executive Unit": "worklog_owner_EU",
             "Job Level": "worklog_owner_level",
             "Job Title": "worklog_owner_title",
-
         },
         axis=1,
         inplace=True,

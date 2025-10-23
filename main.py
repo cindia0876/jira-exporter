@@ -10,21 +10,12 @@ import uvicorn
 
 load_dotenv()
 domain = os.getenv("JIRA_DOMAIN")
-email = os.getenv("JIRA_EMAIL")
-token = os.getenv("JIRA_TOKEN")
-
-GCP_PROJECT = os.environ.get("GCP_PROJECT")
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
-PUBSUB_TOPIC = os.environ.get("PUBSUB_TOPIC")
 
-if not all([email, token]):
-    raise RuntimeError("JIRA_EMAIL or JIRA_TOKEN not set in .env")
-
-if not GCP_PROJECT:
-    raise RuntimeError("GCP_PROJECT not set in .env")
-
-if not GCS_BUCKET or not PUBSUB_TOPIC:
-    raise RuntimeError("GCS_BUCKET or PUBSUB_TOPIC not set in .env")
+if not domain:
+    raise RuntimeError("domain not set in .env")
+if not GCS_BUCKET:
+    raise RuntimeError("GCS_BUCKET not set in .env")
 
 Jira = JiraAPI(domain, email, token)
 app = FastAPI(title="Jira Report API")
@@ -48,13 +39,12 @@ class DateRange(BaseModel):
 # -----------------------------------
 @app.get("/")
 def get_jira_report():
-    return {"status": "report generation started"}
-    # try:
-    #     start_date = "2025-09-01"
-    #     end_date = "2025-10-01"
-    #     return generate_report(start_date, end_date)
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=str(e))
+    try:
+        start_date = "2025-09-01"
+        end_date = "2025-10-01"
+        return generate_report(start_date, end_date)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # -----------------------------------
@@ -106,13 +96,6 @@ def generate_report(start_date: str, end_date: str):
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_string(filtered_df.to_csv(index=False), "text/csv")
-
-    # Step 7: 發送 Pub/Sub
-    publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(GCP_PROJECT, PUBSUB_TOPIC)
-    message = f"Jira report generated: {filename}".encode("utf-8")
-    future = publisher.publish(topic_path, message)
-    future.result()  # 確保訊息送出
 
     return {"message": "Report generated", "filename": filename}
 
