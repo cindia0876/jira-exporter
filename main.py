@@ -32,14 +32,28 @@ def load_jira_credentials():
 
     # 環境變數
     domain = os.environ.get("JIRA_DOMAIN")
+    print("domain",domain)
+
     GCS_BUCKET = os.environ.get("GCS_BUCKET")
+    print("GCS_BUCKET",GCS_BUCKET)
+
     project_id = os.environ.get("GCP_PROJECT_NUM")
+    print("project_id",project_id)
+
     email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+    print("email_secret",email_secret)
+
     token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+    print("token_secret,"token_secret)
+
 
     # secret manager
     jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
+    print("jira_email",jira_email)
+
     jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
+    print("Jjira_token",jira_token)
+
 
     # Jira API 初始化
     Jira = JiraAPI(domain, jira_email, jira_token)
@@ -62,8 +76,16 @@ class DateRange(BaseModel):
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
+    print(f"Step 1: 取得 issues")
     issues = Jira.get_active_issues(start_date, end_date)
+    print(f"[INFO] 總共取得 {len(issues)} 筆 active issues")
+
+    print(f"Step 2: issues 轉成 projects 結構")
     projects = Jira.trace_project_info_by_issues(issues)
+    print(f"[INFO] 對應到 {len(projects)} 個 project")
+
+    
+    print(f"Step 3: 逐一補上每個 issue 的 worklogs 與 user info")
     user_data = {}
     for project in projects:
         for issue in project["issues"]:
@@ -73,19 +95,25 @@ def generate_report(start_date: str, end_date: str):
                 if user_id and user_id not in user_data:
                     user_data[user_id] = Jira.get_user_group_info_from_user_id(user_id)
 
+    print(f"Step 4: 轉換為 DataFrame")
     df = project_data_to_df(projects)
     user_df = user_data_to_df(user_data)
     df = pd.merge(df, user_df, on="worklog_owner_id", how="left")
+    print(f"[INFO] 最終資料筆數（含 worklogs）：{len(df)}")
 
+    print(f"Step 5: 時間篩選")
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
     filtered_df = filter_df_by_date(df, start, end)
+    print(f"[INFO] 過濾後筆數：{len(filtered_df)}")
 
+    print(f"Step 6: 存入GCS")
     filename = f"jiraReport_{start_date}_{end_date}.csv"
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_string(filtered_df.to_csv(index=False), "text/csv")
+    print(f"[SUCCESS] 輸出檔案")
 
     return {"message": "Report generated", "filename": filename}
 
