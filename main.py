@@ -3,16 +3,16 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import pandas as pd
 from jira_api import JiraAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from google.cloud import storage
 
-load_dotenv()
+# load_dotenv()
 
 # 取得環境變數
-domain = os.getenv("JIRA_DOMAIN")
-email = os.getenv("JIRA_EMAIL")
-token = os.getenv("JIRA_TOKEN")
-GCS_BUCKET = os.getenv("GCS_BUCKET")
+domain = os.environ.get("JIRA_DOMAIN")
+email = os.environ.get("JIRA_EMAIL")
+token = os.environ.get("JIRA_TOKEN")
+GCS_BUCKET = os.environ.get("GCS_BUCKET")
 
 if not domain or not email or not token or not GCS_BUCKET:
     raise RuntimeError("Missing required environment variables")
