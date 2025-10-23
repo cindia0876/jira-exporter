@@ -8,9 +8,14 @@ from google.cloud import storage
 
 # 環境變數
 domain = os.environ.get("JIRA_DOMAIN")
-email = os.environ.get("JIRA_EMAIL")
-token = os.environ.get("JIRA_TOKEN")
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
+project_id = os.environ.get("GCP_PROJECT_NUM")
+jira_email = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+jira_token = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+
+# secret manager
+email = access_secret(f"projects/{project_id}/secrets/{jira_email}")
+token = access_secret(f"projects/{project_id}/secrets/{jira_token}")
 
 if not domain or not email or not token or not GCS_BUCKET:
     raise RuntimeError("Missing required environment variables")
@@ -64,6 +69,16 @@ def generate_report(start_date: str, end_date: str):
     blob.upload_from_string(filtered_df.to_csv(index=False), "text/csv")
 
     return {"message": "Report generated", "filename": filename}
+
+# -----------------------------------
+# 從 Google Secret Manager 取得 secret 值
+# secret_name 格式: projects/{project_id}/secrets/{secret_id}
+# -----------------------------------
+def access_secret(secret_name: str, version: str = "latest") -> str:
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"{secret_name}/versions/{version}"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode("UTF-8")
 
 # -----------------------------------
 # GET API: 固定區間
