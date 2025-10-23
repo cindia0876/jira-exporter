@@ -1,0 +1,37 @@
+steps:
+  # Step 1. 使用 Buildpacks 建立容器映像檔
+  - name: 'gcr.io/buildpacks/builder'
+    entrypoint: 'pack'
+    args:
+      [
+        'build',
+        'asia-east1-docker.pkg.dev/techcenter-dev/jira-exporter/jira-exporter:latest',
+        '--builder',
+        'gcr.io/buildpacks/builder:v1',
+        '--env',
+        'GOOGLE_RUNTIME=python',
+      ]
+
+  # Step 2. 部署到 Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'deploy',
+        'jira-exporter',
+        '--image',
+        'asia-east1-docker.pkg.dev/techcenter-dev/jira-exporter/jira-exporter:latest',
+        '--region',
+        'asia-east1',
+        '--allow-unauthenticated',
+        '--platform',
+        'managed',
+        '--set-env-vars',
+        'GCS_BUCKET=jira-exporter-reports,JIRA_DOMAIN=https://nl-pmis.atlassian.net'
+      ]
+
+images:
+  - 'asia-east1-docker.pkg.dev/techcenter-dev/jira-exporter/jira-exporter:latest'
+
+timeout: 1200s
