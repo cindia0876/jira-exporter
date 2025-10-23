@@ -30,24 +30,31 @@ def get_jira_api():
     global jira_api, GCS_BUCKET
     if jira_api is None:
         domain = os.environ.get("JIRA_DOMAIN")
+        print(f"[INFO] domain :{domain} ")
         if not domain:
             raise RuntimeError("Missing environment variable: JIRA_DOMAIN")
 
         GCS_BUCKET = os.environ.get("GCS_BUCKET")
+        print(f"[INFO] GCS_BUCKET :{GCS_BUCKET} ")
         if not GCS_BUCKET:
             raise RuntimeError("Missing environment variable: GCS_BUCKET")
 
         project_id = os.environ.get("GCP_PROJECT_NUM")
+        print(f"[INFO] project_id :{project_id} ")
         if not project_id:
             raise RuntimeError("Missing environment variable: GCP_PROJECT_NUM")
 
         email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+        print(f"[INFO] email_secret :{email_secret} ")
         token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+        print(f"[INFO] token_secret :{token_secret} ")
         if not email_secret or not token_secret:
             raise RuntimeError("Missing Jira secret names in environment variables")
 
         jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
+        print(f"[INFO] jira_email :{jira_email} ")
         jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
+        print(f"[INFO] jira_token :{jira_token} ")
 
         jira_api = JiraAPI(domain, jira_email, jira_token)
         print("Jira API initialized")
