@@ -10,6 +10,8 @@ steps:
         'gcr.io/buildpacks/builder:v1',
         '--env',
         'GOOGLE_RUNTIME=python',
+        '--env',
+        'GOOGLE_ENTRYPOINT=uvicorn main:app --host 0.0.0.0 --port $PORT'
       ]
 
   # Step 2. 部署到 Cloud Run
