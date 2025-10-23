@@ -5,46 +5,45 @@ from pydantic import BaseModel, validator
 import pandas as pd
 from jira_api import JiraAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
 from google.cloud import storage
+from google.cloud import secretmanager
+
+# 建立 FastAPI App
+app = FastAPI()
 
 # -----------------------------------
 # 從 Google Secret Manager 取得 secret 值
 # secret_name 格式: projects/{project_id}/secrets/{secret_id}
 # -----------------------------------
 def access_secret(secret_name: str, version: str = "latest") -> str:
-    print('access_secret secret_name',secret_name)
     client = secretmanager.SecretManagerServiceClient()
     name = f"{secret_name}/versions/{version}"
-    response = client.access_secret_version(name=name)
-    return response.payload.data.decode("UTF-8")
+    try:
+        response = client.access_secret_version(name=name)
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        print(f"Failed to access secret {secret_name}: {e}")
+        raise
+
 
 # 環境變數初始化
 @app.on_event("startup")
 def load_jira_credentials():
-    global jira_email, jira_token
+    global domain, GCS_BUCKET, jira_email, jira_token,  Jira
+
+    # 環境變數
+    domain = os.environ.get("JIRA_DOMAIN")
+    GCS_BUCKET = os.environ.get("GCS_BUCKET")
     project_id = os.environ.get("GCP_PROJECT_NUM")
-    print('project_id',project_id)
-
     email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
-    print('email_secret',email_secret)
-
     token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
-    print('token_secret',token_secret)
 
+    # secret manager
     jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
-    print('jira_email',jira_email)
-
     jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
-    print('jira_token',jira_token)
 
-
-if not domain or not email or not token or not GCS_BUCKET:
-    raise RuntimeError("Missing required environment variables")
-
-# Jira API 初始化
-Jira = JiraAPI(domain, jira_email, jira_token)
-
-# 建立 FastAPI App
-app = FastAPI(title="Jira Report API")
+    # Jira API 初始化
+    Jira = JiraAPI(domain, jira_email, jira_token)
+    print("Jira 初始化完成")
 
 # ===== POST Body schema =====
 class DateRange(BaseModel):
