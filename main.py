@@ -72,7 +72,7 @@ class DateRange(BaseModel):
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
-    jira = get_jira_api()
+    Jira = get_jira_api()
     print(f"Fetching issues from {start_date} to {end_date}")
 
     print(f"Step 1: 取得 issues")
