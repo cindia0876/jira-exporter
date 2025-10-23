@@ -9,6 +9,8 @@ from google.cloud import secretmanager
 
 # 建立 FastAPI App
 app = FastAPI()
+jira_api = None
+GCS_BUCKET = None
 
 # -----------------------------------
 # 從 Google Secret Manager 取得 secret 值
@@ -24,40 +26,34 @@ def access_secret(secret_name: str, version: str = "latest") -> str:
         print(f"Failed to access secret {secret_name}: {e}")
         raise
 
+def get_jira_api():
+    global jira_api, GCS_BUCKET
+    if jira_api is None:
+        domain = os.environ.get("JIRA_DOMAIN")
+        if not domain:
+            raise RuntimeError("Missing environment variable: JIRA_DOMAIN")
 
-# 環境變數初始化
-@app.on_event("startup")
-def load_jira_credentials():
-    global domain, GCS_BUCKET, jira_email, jira_token,  Jira
+        GCS_BUCKET = os.environ.get("GCS_BUCKET")
+        if not GCS_BUCKET:
+            raise RuntimeError("Missing environment variable: GCS_BUCKET")
 
-    # 環境變數
-    domain = os.environ.get("JIRA_DOMAIN")
-    print("domain",domain)
+        project_id = os.environ.get("GCP_PROJECT_NUM")
+        if not project_id:
+            raise RuntimeError("Missing environment variable: GCP_PROJECT_NUM")
 
-    GCS_BUCKET = os.environ.get("GCS_BUCKET")
-    print("GCS_BUCKET",GCS_BUCKET)
+        email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+        token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+        if not email_secret or not token_secret:
+            raise RuntimeError("Missing Jira secret names in environment variables")
 
-    project_id = os.environ.get("GCP_PROJECT_NUM")
-    print("project_id",project_id)
+        jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
+        jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
 
-    email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
-    print("email_secret",email_secret)
+        jira_api = JiraAPI(domain, jira_email, jira_token)
+        print("Jira API initialized")
 
-    token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
-    print("token_secret,"token_secret)
+    return jira_api
 
-
-    # secret manager
-    jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
-    print("jira_email",jira_email)
-
-    jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
-    print("Jjira_token",jira_token)
-
-
-    # Jira API 初始化
-    Jira = JiraAPI(domain, jira_email, jira_token)
-    print("Jira 初始化完成")
 
 # ===== POST Body schema =====
 class DateRange(BaseModel):
@@ -76,6 +72,9 @@ class DateRange(BaseModel):
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
+    jira = get_jira_api()
+    print(f"Fetching issues from {start_date} to {end_date}")
+
     print(f"Step 1: 取得 issues")
     issues = Jira.get_active_issues(start_date, end_date)
     print(f"[INFO] 總共取得 {len(issues)} 筆 active issues")
