@@ -176,7 +176,10 @@ class JiraAPI:
                 print(f"[INFO] /search/jql：issues獲取失敗")
                 raise PermissionError(response.text)
             data = response.json()
-            print(f"[INFO] /search/jql：成功獲取issues")
+            total = data.get("total", 0) 
+            print(f"[INFO] /search/jql total:{total} ")
+            current_count = len(data.get("issues", []))
+            print(f"[INFO] /search/jql：獲取{current_count} 筆issues")
 
             if raw:
                 issues.extend(data["issues"])
@@ -202,10 +205,15 @@ class JiraAPI:
                     parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
-            print(f"[INFO] 結束解析issues")
-            if len(data["issues"]) < max_results:
+                print(f"[INFO] 結束解析issues")
+            # if len(data["issues"]) < max_results:
+            #     break
+            # start_at += max_results
+            start_at += current_count
+             # 判斷是否抓完所有 issues
+            if start_at >= total or current_count == 0:
                 break
-            start_at += max_results
+            print(f"[INFO] 結束解析issues")
         return issues
 
     def get_project_info_by_key(self, project_key: str, raw: bool = False) -> dict:
