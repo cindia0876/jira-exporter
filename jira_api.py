@@ -177,10 +177,8 @@ class JiraAPI:
                 raise PermissionError(response.text)
             data = response.json()
             total = data.get("total", 0) 
-            print(f"[INFO] /search/jql total:{total} ")
             current_count = len(data.get("issues", []))
-            print(f"[INFO] /search/jql：獲取{current_count} 筆issues")
-
+            print(f"[DEBUG] total={total}, start_at={start_at}, current_count={current_count}")
             if raw:
                 issues.extend(data["issues"])
             else:
@@ -212,6 +210,7 @@ class JiraAPI:
             start_at += current_count
              # 判斷是否抓完所有 issues
             if start_at >= total or current_count == 0:
+                print("[DEBUG] All issues fetched or no issues in this batch, breaking loop.")
                 break
             print(f"[INFO] 結束解析issues")
         return issues
