@@ -91,9 +91,12 @@ class JiraAPI:
 
               batch = data.get("worklogs", [])
               for worklog in batch:
+                  # 將 UTC 轉換為 +8 時區，轉為台灣時區避免日期錯誤
+                #   started = isoparse(worklog["started"]).astimezone(timezone(timedelta(hours=8)))
                   parsed = {
                       "owner": worklog.get("author", {}).get("displayName"),
                       "owner_id": worklog.get("author", {}).get("accountId"),
+                    #   "start_date": started.date(),
                       "start_date": isoparse(worklog["started"]).date(),
                       "time_spent_hr": worklog["timeSpentSeconds"] / 3600
                   }
@@ -170,13 +173,16 @@ class JiraAPI:
             )
 
             if response.status_code != 200:
+                print(f"[INFO] /search/jql：issues獲取失敗")
                 raise PermissionError(response.text)
             data = response.json()
+            print(f"[INFO] /search/jql：成功獲取issues")
 
             if raw:
                 issues.extend(data["issues"])
             else:
                 parsed_list = []
+                print(f"[INFO] 開始解析issues")
                 for issue in data["issues"]:
                     parsed = {}
                     parsed["name"] = issue["fields"].get("summary")
@@ -196,6 +202,7 @@ class JiraAPI:
                     parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
+            print(f"[INFO] 結束解析issues")
             if len(data["issues"]) < max_results:
                 break
             start_at += max_results
@@ -225,6 +232,7 @@ class JiraAPI:
         """
         # group issues by projects into dictionary
         project_grouping = {}
+        print(f"[INFO] 開始組合issues的project information")
         for issue in issues:
             project_key = issue["project_key"]
             if project_key not in project_grouping:
