@@ -85,23 +85,21 @@ class JiraAPI:
               query = {"startAt": start_at, "maxResults": max_results}
               response = requests.get(url, headers=self.header, auth=self.auth, params=query)
               if response.status_code != 200:
-                  logging.warning(f"Failed to fetch worklogs for {issue_id}: {response.text}")
+                  print(f"[ERROR] /issue/{issue_id}/worklog：獲取失敗 ({response.status_code})")
                   break
               data = response.json()
 
               batch = data.get("worklogs", [])
               for worklog in batch:
-                  # 將 UTC 轉換為 +8 時區，轉為台灣時區避免日期錯誤
-                #   started = isoparse(worklog["started"]).astimezone(timezone(timedelta(hours=8)))
                   parsed = {
                       "owner": worklog.get("author", {}).get("displayName"),
                       "owner_id": worklog.get("author", {}).get("accountId"),
-                    #   "start_date": started.date(),
                       "start_date": isoparse(worklog["started"]).date(),
                       "time_spent_hr": worklog["timeSpentSeconds"] / 3600
                   }
                   worklogs.append(parsed)
 
+              # 分頁判斷邏輯
               if len(batch) < max_results:
                   break
               start_at += max_results
@@ -194,6 +192,7 @@ class JiraAPI:
                         parsed["status"] = issue["fields"]["customfield_10035"]["value"]
                     else:
                         parsed["status"] = None
+
                     # 抓取客製化欄位 10142 和 10139 的值
                     parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
                     parsed["customfield_10139"] = issue["fields"].get("customfield_10139")

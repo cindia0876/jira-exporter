@@ -6,6 +6,8 @@ import pandas as pd
 from jira_api import JiraAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
 from google.cloud import storage
 from google.cloud import secretmanager
+from datetime import date, datetime
+import calendar
 
 # 建立 FastAPI App
 app = FastAPI()
@@ -105,7 +107,7 @@ def generate_report(start_date: str, end_date: str):
     df = project_data_to_df(projects)
     user_df = user_data_to_df(user_data)
     df = pd.merge(df, user_df, on="worklog_owner_id", how="left")
-    print(f"[INFO] 最終資料筆數（含 worklogs：{len(df)}")
+    print(f"[INFO] 最終資料筆數含 worklogs：{len(df)}")
 
     print(f"Step 5: 時間篩選")
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -118,34 +120,60 @@ def generate_report(start_date: str, end_date: str):
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
-    blob.upload_from_string(filtered_df.to_csv(index=False), "text/csv")
+    blob.upload_from_string(filtered_df.to_csv(index=False, encoding="utf-8-sig"), content_type="text/csv; charset=utf-8")
     print(f"[SUCCESS] 輸出檔案")
 
     return {"message": "Report generated", "filename": filename}
 
 # -----------------------------------
-# GET API: 固定區間
+# GET API: 每個月自動匯出月報表
 # -----------------------------------
 @app.get("/")
-def get_jira_report():
+# @app.get("/reports/monthly/auto")
+def get_monthlyReportsAuto():
     try:
-        start_date = "2025-09-01"
-        end_date = "2025-10-01"
+        # 今天
+        today = date.today()
+
+        # 上個月的年份和月份
+        year = today.year
+        month = today.month - 1
+        if month == 0:  # 如果今天是 1 月，上一個月是去年 12 月
+            month = 12
+            year -= 1
+
+        # 上個月的第一天
+        first_day = date(year, month, 1)
+
+        # 上個月的最後一天
+        last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+        start_date = first_day.strftime("%Y-%m-%d")
+        end_date = last_day.strftime("%Y-%m-%d")
+        
         return generate_report(start_date, end_date)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # -----------------------------------
-# POST API: 自訂區間
+# POST API: 自訂匯出報表的時間區間
 # -----------------------------------
-@app.post("/jira-report")
-def post_jira_report(daterange: DateRange):
+@app.post("/reports/monthly")
+def post_monthlyReports(daterange: DateRange):
     try:
         return generate_report(daterange.start_date, daterange.end_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------------------
+# POST API: 依照「專案」匯出報表
+# -----------------------------------
+# @app.post("/reports/projects")
+# def post_reportsByProjects(): 
+    
 
 if __name__ == "__main__":
     import uvicorn
