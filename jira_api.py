@@ -179,31 +179,22 @@ class JiraAPI:
                 parsed_list = []
                 print(f"[INFO] 開始解析issues")
                 for issue in data["issues"]:
-                    fields = issue["fields"]
-                    parsed = {
-                        "name": fields.get("summary"),
-                        "key": issue.get("key"),
-                        "project_key": fields["project"]["key"],
-                        "team": fields.get("customfield_10001", {}).get("name"),
-                        "status": fields.get("customfield_10035", {}).get("value"),
-                        "customfield_10142": fields.get("customfield_10142"),
-                        "customfield_10139": fields.get("customfield_10139"),
-                    }
-                    # parsed["name"] = issue["fields"].get("summary")
-                    # parsed["key"] = issue.get("key")
-                    # parsed["project_key"] = issue["fields"]["project"]["key"]
-                    # if issue["fields"].get("customfield_10001"):
-                    #     parsed["team"] = issue["fields"]["customfield_10001"]["name"]
-                    # else:
-                    #     parsed["team"] = None
+                    parsed = {}
+                    parsed["name"] = issue["fields"].get("summary")
+                    parsed["key"] = issue.get("key")
+                    parsed["project_key"] = issue["fields"]["project"]["key"]
+                    if issue["fields"].get("customfield_10001"):
+                        parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+                    else:
+                        parsed["team"] = None
 
-                    # if issue["fields"].get("customfield_10035"):
-                    #     parsed["status"] = issue["fields"]["customfield_10035"]["value"]
-                    # else:
-                    #     parsed["status"] = None
-                    # # 抓取客製化欄位 10142 和 10139 的值
-                    # parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
-                    # parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
+                    if issue["fields"].get("customfield_10035"):
+                        parsed["status"] = issue["fields"]["customfield_10035"]["value"]
+                    else:
+                        parsed["status"] = None
+                    # 抓取客製化欄位 10142 和 10139 的值
+                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
+                    parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析issues")
