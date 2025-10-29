@@ -160,6 +160,8 @@ class JiraAPI:
                 "maxResults": max_results,
                 "startAt": start_at,
             }
+            if next_page_token:
+                query["nextPageToken"] = next_page_token
 
             url = f"{self.domain}/rest/api/3/search/jql"
             response = requests.get(url, headers=self.header, auth=self.auth, params=query)
@@ -169,9 +171,8 @@ class JiraAPI:
                 raise PermissionError(response.text)
 
             data = response.json()
-            current_issues = data.get("issues", [])
-            current_count = len(current_issues)
-            print(f"[DEBUG] start_at={start_at}, count={current_count}, isLast={data.get('isLast')}")
+            next_page_token = data.get("nextPageToken")
+            print(f"[DEBUG] next_page_token:{next_page_token}")
 
             if raw:
                 issues.extend(data["issues"])
@@ -199,24 +200,11 @@ class JiraAPI:
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析issues")
            
-            # ✅ 分頁判斷邏輯
-            if len(current_issues) < max_results:
-                # 最後一頁
+            # 分頁判斷邏輯
+            next_page_token = data.get("nextPageToken")
+            if not next_page_token:
                 break
 
-            start_at += len(current_issues)
-            # if data.get("isLast", True) or current_count == 0:
-            #     print("[DEBUG] 已抓到最後一頁或無更多資料，結束。")
-            #     break
-            
-            # # 更新 startAt 以撈下一頁
-            # start_at += current_count
-
-            # start_at += current_count
-            #  # 判斷是否抓完所有 issues
-            # if start_at >= total or current_count == 0:
-            #     print("[DEBUG] All issues fetched or no issues in this batch, breaking loop.")
-            #     break
         return issues
 
     def get_project_info_by_key(self, project_key: str, raw: bool = False) -> dict:
