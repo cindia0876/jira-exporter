@@ -155,7 +155,7 @@ class JiraAPI:
         issues = []
         while True:
             query = {
-                "jql": f""" worklogDate >= "{start_date}" AND worklogDate < "{end_date}" ORDER BY created ASC """,
+                "jql": f""" worklogDate >= "{start_date}" AND worklogDate < "{end_date}" ORDER BY created ASC, key ASC """,
                 "fields": "summary,project,worklog,customfield_10001,customfield_10035,customfield_10142,customfield_10139",
                 "maxResults": max_results,
                 "startAt": start_at,
@@ -200,12 +200,17 @@ class JiraAPI:
                 print(f"[INFO] 結束解析issues")
            
             # ✅ 分頁判斷邏輯
-            if data.get("isLast", True) or current_count == 0:
-                print("[DEBUG] 已抓到最後一頁或無更多資料，結束。")
+            if len(current_issues) < max_results:
+                # 最後一頁
                 break
+
+            start_at += len(current_issues)
+            # if data.get("isLast", True) or current_count == 0:
+            #     print("[DEBUG] 已抓到最後一頁或無更多資料，結束。")
+            #     break
             
-            # 更新 startAt 以撈下一頁
-            start_at += current_count
+            # # 更新 startAt 以撈下一頁
+            # start_at += current_count
 
             # start_at += current_count
             #  # 判斷是否抓完所有 issues
