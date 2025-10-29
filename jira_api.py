@@ -155,64 +155,72 @@ class JiraAPI:
         issues = []
         while True:
             query = {
-                "jql": f"""
-                worklogDate >= "{start_date}" AND
-                worklogDate < "{end_date}"
-                ORDER BY created ASC
-                """,
+                "jql": f""" worklogDate >= "{start_date}" AND worklogDate < "{end_date}" ORDER BY created ASC """,
+                "fields": "summary,project,worklog,customfield_10001,customfield_10035,customfield_10142,customfield_10139",
                 "maxResults": max_results,
                 "startAt": start_at,
-                "fields": "summary,project,worklog,customfield_10001,customfield_10035,customfield_10142,customfield_10139",
-                "expand": "changelog"
             }
 
             url = f"{self.domain}/rest/api/3/search/jql"
-
-            response = requests.get(
-                url, headers=self.header, auth=self.auth, params=query
-            )
+            response = requests.get(url, headers=self.header, auth=self.auth, params=query)
 
             if response.status_code != 200:
-                print(f"[INFO] /search/jql：issues獲取失敗")
+                print(f"[ERROR] /search/jql：issues獲取失敗 ({response.status_code})")
                 raise PermissionError(response.text)
+
             data = response.json()
-            total = data.get("total", 0) 
-            current_count = len(data.get("issues", []))
-            print(f"[DEBUG] total={total}, start_at={start_at}, current_count={current_count}")
+            current_issues = data.get("issues", [])
+            current_count = len(current_issues)
+            print(f"[DEBUG] start_at={start_at}, count={current_count}, isLast={data.get('isLast')}")
+
             if raw:
                 issues.extend(data["issues"])
             else:
                 parsed_list = []
                 print(f"[INFO] 開始解析issues")
                 for issue in data["issues"]:
-                    parsed = {}
-                    parsed["name"] = issue["fields"].get("summary")
-                    parsed["key"] = issue.get("key")
-                    parsed["project_key"] = issue["fields"]["project"]["key"]
-                    if issue["fields"].get("customfield_10001"):
-                        parsed["team"] = issue["fields"]["customfield_10001"]["name"]
-                    else:
-                        parsed["team"] = None
+                    fields = issue["fields"]
+                    parsed = {
+                        "name": fields.get("summary"),
+                        "key": issue.get("key"),
+                        "project_key": fields["project"]["key"],
+                        "team": fields.get("customfield_10001", {}).get("name"),
+                        "status": fields.get("customfield_10035", {}).get("value"),
+                        "customfield_10142": fields.get("customfield_10142"),
+                        "customfield_10139": fields.get("customfield_10139"),
+                    }
+                    # parsed["name"] = issue["fields"].get("summary")
+                    # parsed["key"] = issue.get("key")
+                    # parsed["project_key"] = issue["fields"]["project"]["key"]
+                    # if issue["fields"].get("customfield_10001"):
+                    #     parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+                    # else:
+                    #     parsed["team"] = None
 
-                    if issue["fields"].get("customfield_10035"):
-                        parsed["status"] = issue["fields"]["customfield_10035"]["value"]
-                    else:
-                        parsed["status"] = None
-                    # 抓取客製化欄位 10142 和 10139 的值
-                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
-                    parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
+                    # if issue["fields"].get("customfield_10035"):
+                    #     parsed["status"] = issue["fields"]["customfield_10035"]["value"]
+                    # else:
+                    #     parsed["status"] = None
+                    # # 抓取客製化欄位 10142 和 10139 的值
+                    # parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
+                    # parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析issues")
-            # if len(data["issues"]) < max_results:
-            #     break
-            # start_at += max_results
-            start_at += current_count
-             # 判斷是否抓完所有 issues
-            if start_at >= total or current_count == 0:
-                print("[DEBUG] All issues fetched or no issues in this batch, breaking loop.")
+           
+            # ✅ 分頁判斷邏輯
+            if data.get("isLast", True) or current_count == 0:
+                print("[DEBUG] 已抓到最後一頁或無更多資料，結束。")
                 break
-            print(f"[INFO] 結束解析issues")
+            
+            # 更新 startAt 以撈下一頁
+            start_at += current_count
+
+            # start_at += current_count
+            #  # 判斷是否抓完所有 issues
+            # if start_at >= total or current_count == 0:
+            #     print("[DEBUG] All issues fetched or no issues in this batch, breaking loop.")
+            #     break
         return issues
 
     def get_project_info_by_key(self, project_key: str, raw: bool = False) -> dict:

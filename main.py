@@ -105,7 +105,7 @@ def generate_report(start_date: str, end_date: str):
     df = project_data_to_df(projects)
     user_df = user_data_to_df(user_data)
     df = pd.merge(df, user_df, on="worklog_owner_id", how="left")
-    print(f"[INFO] 最終資料筆數（含 worklogs）：{len(df)}")
+    print(f"[INFO] 最終資料筆數（含 worklogs：{len(df)}")
 
     print(f"Step 5: 時間篩選")
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
