@@ -153,6 +153,7 @@ class JiraAPI:
         Pagination considered.
         """
         issues = []
+        next_page_token = None
         while True:
             query = {
                 "jql": f""" worklogDate >= "{start_date}" AND worklogDate < "{end_date}" ORDER BY created ASC, key ASC """,
