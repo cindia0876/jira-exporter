@@ -180,18 +180,18 @@ class JiraMonthlyAPI:
                 print(f"[INFO] 開始解析issues")
                 for issue in data["issues"]:
                     parsed = {}
-                    parsed["name"] = issue["fields"].get("summary")
-                    parsed["key"] = issue.get("key")
+                    parsed["issues_name"] = issue["fields"].get("summary")
+                    parsed["issues_key"] = issue.get("key")
                     parsed["project_key"] = issue["fields"]["project"]["key"]
                     if issue["fields"].get("customfield_10001"):
-                        parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+                        parsed["issues_team"] = issue["fields"]["customfield_10001"]["name"]
                     else:
-                        parsed["team"] = None
+                        parsed["issues_team"] = None
 
                     if issue["fields"].get("customfield_10035"):
-                        parsed["status"] = issue["fields"]["customfield_10035"]["value"]
+                        parsed["issues_status"] = issue["fields"]["customfield_10035"]["value"]
                     else:
-                        parsed["status"] = None
+                        parsed["issues_status"] = None
 
                     # 抓取客製化欄位 10142 和 10139 的值
                     parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
@@ -337,7 +337,7 @@ def project_data_to_df(projects) -> pd.DataFrame:
         'customfield_10142': 'Parent_Key',
         'customfield_10139.value': 'Worklog_Type',
         'worklog_start_date': 'worklog_start_date',
-        'worklog_owner': 'worklog_owner_name',
+        'worklog_owner': 'worklog_owner',
         'worklog_owner_id': 'worklog_owner_id',
         'worklog_time_spent_hr': 'worklog_time_spent_hr'
     }, inplace=True)

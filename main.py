@@ -17,8 +17,10 @@ app = FastAPI()
 GCS_BUCKET = None
 
 # -----------------------------------
-# 從 Google Secret Manager 取得 secret 值
-# secret_name 格式: projects/{project_id}/secrets/{secret_id}
+# 從 Secret Manager 取得 secret 值
+#      參數：
+#          secret_name : projects/{project_id}/secrets/{secret_id}
+#          version : latest
 # -----------------------------------
 def access_secret(secret_name: str, version: str = "latest") -> str:
     client = secretmanager.SecretManagerServiceClient()
@@ -79,7 +81,7 @@ def init_jira_api(api_type: str):
     return api_instance
 
 # -----------------------------------
-# 共用報表生成函數
+# 月報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
     jira_api = init_jira_api("monthly")
@@ -142,8 +144,8 @@ class DateRange(BaseModel):
 # -----------------------------------
 # GET API: 每個月自動匯出月報表
 # -----------------------------------
-@app.get("/")
 # @app.get("/reports/monthly/auto")
+@app.get("/")
 def get_monthlyReportsAuto():
     try:
         # 今天
@@ -175,7 +177,7 @@ def get_monthlyReportsAuto():
 #         start_date (str): 起始日期(如：2025-09-01)
 #         end_date (str): 結束日期(如：2025-09-01)
 # -----------------------------------
-@app.post("/reports/monthly")
+@app.get("/reports/monthly")
 def post_monthlyReports(daterange: DateRange):
     try:
         return generate_report(daterange.start_date, daterange.end_date)
@@ -190,7 +192,7 @@ def post_monthlyReports(daterange: DateRange):
 #     參數：
 #         project_key (str): JIRA 專案代碼
 # -----------------------------------
-@app.post("/reports/projects")
+@app.get("/reports/projects")
 def post_reportsByProjects(roject_key): 
     jira_api = init_jira_api("project")
     print(f"Fetching information By {projects}")
@@ -294,9 +296,6 @@ def post_reportsByProjects(roject_key):
     print(f"✅ 專案資料已匯出完成：{output_path}")
 
     return df_final
-
-
-    
 
 if __name__ == "__main__":
     import uvicorn
