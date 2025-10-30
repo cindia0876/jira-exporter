@@ -138,6 +138,12 @@ class JiraMonthlyAPI:
    
     # ---------Extended functioanlities to get active issues ----------------
 
+    def safe_get_value(field_dict, key):
+        value = field_dict.get(key)
+        if isinstance(value, dict):
+            return value.get("value")
+        return None
+
     def get_active_issues(
         self,
         start_date: str,
@@ -194,8 +200,8 @@ class JiraMonthlyAPI:
                         parsed["issues_status"] = None
 
                     # 抓取客製化欄位 10142 和 10139 的值
-                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
-                    parsed["customfield_10139"] = issue["fields"].get("customfield_10139")
+                    parsed["customfield_10142"] = safe_get_value(issue["fields"], "customfield_10142")
+                    parsed["customfield_10139"] =safe_get_value(issue["fields"], "customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析issues")
