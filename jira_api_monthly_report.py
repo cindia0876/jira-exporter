@@ -16,7 +16,7 @@ GROUPS = {
     "Job Title": ["SA","PM","Data Engineer","SRE","TAM"]
 }
 
-class JiraAPI:
+class JiraMonthlyAPI:
 
     def __init__(self, domain, email, token) -> None:
         self.domain = domain

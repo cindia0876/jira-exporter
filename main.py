@@ -3,7 +3,8 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, validator
 import pandas as pd
-from jira_api import JiraAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
+from jira_api_monthly_report import JiraMonthlyAPI, GROUPS, project_data_to_df, filter_df_by_date, user_data_to_df
+from jira_api_project_report import JiraProjectAPI
 from google.cloud import storage
 from google.cloud import secretmanager
 from datetime import date, datetime
@@ -11,7 +12,8 @@ import calendar
 
 # 建立 FastAPI App
 app = FastAPI()
-jira_api = None
+
+# jira_api = None
 GCS_BUCKET = None
 
 # -----------------------------------
@@ -28,60 +30,59 @@ def access_secret(secret_name: str, version: str = "latest") -> str:
         print(f"Failed to access secret {secret_name}: {e}")
         raise
 
-def get_jira_api():
-    global jira_api, GCS_BUCKET
-    if jira_api is None:
-        domain = os.environ.get("JIRA_DOMAIN")
-        print(f"[INFO] domain :{domain} ")
-        if not domain:
-            raise RuntimeError("Missing environment variable: JIRA_DOMAIN")
+# -----------------------------------
+# JIRA API & 初始化
+# -----------------------------------
+jira_apis = {}
+def init_jira_api(api_type: str):
+    global jira_apis, GCS_BUCKET
+    if api_type in jira_apis:
+        return jira_apis[api_type]
 
-        GCS_BUCKET = os.environ.get("GCS_BUCKET")
-        print(f"[INFO] GCS_BUCKET :{GCS_BUCKET} ")
-        if not GCS_BUCKET:
-            raise RuntimeError("Missing environment variable: GCS_BUCKET")
+    domain = os.environ.get("JIRA_DOMAIN")
+    print(f"[INFO] domain :{domain} ")
+    if not domain:
+        raise RuntimeError("Missing environment variable: JIRA_DOMAIN")
 
-        project_id = os.environ.get("GCP_PROJECT_NUM")
-        print(f"[INFO] project_id :{project_id} ")
-        if not project_id:
-            raise RuntimeError("Missing environment variable: GCP_PROJECT_NUM")
+    GCS_BUCKET = os.environ.get("GCS_BUCKET")
+    print(f"[INFO] GCS_BUCKET :{GCS_BUCKET} ")
+    if not GCS_BUCKET:
+        raise RuntimeError("Missing environment variable: GCS_BUCKET")
 
-        email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
-        print(f"[INFO] email_secret :{email_secret} ")
-        token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
-        print(f"[INFO] token_secret :{token_secret} ")
-        if not email_secret or not token_secret:
-            raise RuntimeError("Missing Jira secret names in environment variables")
+    project_id = os.environ.get("GCP_PROJECT_NUM")
+    print(f"[INFO] project_id :{project_id} ")
+    if not project_id:
+        raise RuntimeError("Missing environment variable: GCP_PROJECT_NUM")
 
-        jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
-        print(f"[INFO] jira_email :{jira_email} ")
-        jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
-        print(f"[INFO] jira_token :{jira_token} ")
+    email_secret = os.environ.get("JIRA_EMAIL_SECRET_NAME")
+    print(f"[INFO] email_secret :{email_secret} ")
+    token_secret = os.environ.get("JIRA_TOKEN_SECRET_NAME")
+    print(f"[INFO] token_secret :{token_secret} ")
+    if not email_secret or not token_secret:
+        raise RuntimeError("Missing Jira secret names in environment variables")
 
-        jira_api = JiraAPI(domain, jira_email, jira_token)
-        print("Jira API initialized")
+    jira_email = access_secret(f"projects/{project_id}/secrets/{email_secret}")
+    print(f"[INFO] jira_email :{jira_email} ")
+    jira_token = access_secret(f"projects/{project_id}/secrets/{token_secret}")
+    print(f"[INFO] jira_token :{jira_token} ")
 
-    return jira_api
+    # 動態建立不同的 Jira API 類別
+    if api_type == "monthly":
+        api_instance = JiraMonthlyAPI(domain, jira_email, jira_token)
+    elif api_type == "project":
+        api_instance = JiraProjectAPI(domain, jira_email, jira_token)
+    else:
+        raise ValueError(f"Unknown api_type: {api_type}")
 
-
-# ===== POST Body schema =====
-class DateRange(BaseModel):
-    start_date: str
-    end_date: str
-
-    @validator("start_date", "end_date")
-    def check_date_format(cls, v):
-        try:
-            datetime.strptime(v, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError("Date must be YYYY-MM-DD")
-        return v
+    jira_apis[api_type] = api_instance
+    print(f"[INFO] Jira API initialized for type: {api_type}")
+    return api_instance
 
 # -----------------------------------
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
-    jira_api = get_jira_api()
+    jira_api = get_jira_api("monthly")
     print(f"Fetching issues from {start_date} to {end_date}")
 
     print(f"Step 1: 取得 issues")
@@ -116,22 +117,27 @@ def generate_report(start_date: str, end_date: str):
     print(f"[INFO] 過濾後筆數：{len(filtered_df)}")
 
     print(f"Step 6: 存入GCS")
-    filename = f"jiraReport_{start_date}_{end_date}.xlsx"
+    filename = f"jiraReport_{start_date}_{end_date}.csv"
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
-
-    # 👉 將 DataFrame 轉成 Excel bytes
-    excel_buffer = BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name="Report")
-
-    blob.upload_from_string(excel_buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-    # blob.upload_from_string(filtered_df.to_csv(index=False, encoding="utf-8-sig"), content_type="text/csv; charset=utf-8")
+    blob.upload_from_string(filtered_df.to_csv(index=False, encoding="utf-8-sig"), content_type="text/csv; charset=utf-8")
     print(f"[SUCCESS] 輸出檔案")
 
     return {"message": "Report generated", "filename": filename}
+
+# ===== POST Body schema =====
+class DateRange(BaseModel):
+    start_date: str
+    end_date: str
+
+    @validator("start_date", "end_date")
+    def check_date_format(cls, v):
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Date must be YYYY-MM-DD")
+        return v
 
 # -----------------------------------
 # GET API: 每個月自動匯出月報表
@@ -165,6 +171,9 @@ def get_monthlyReportsAuto():
 
 # -----------------------------------
 # POST API: 自訂匯出報表的時間區間
+#     參數：
+#         start_date (str): 起始日期(如：2025-09-01)
+#         end_date (str): 結束日期(如：2025-09-01)
 # -----------------------------------
 @app.post("/reports/monthly")
 def post_monthlyReports(daterange: DateRange):
@@ -178,128 +187,115 @@ def post_monthlyReports(daterange: DateRange):
 
 # -----------------------------------
 # POST API: 依照「專案」匯出報表
+#     參數：
+#         project_key (str): JIRA 專案代碼
 # -----------------------------------
-# @app.post("/reports/projects")
-# def post_reportsByProjects(): 
-#     jira_api = get_jira_api()
-#     print(f"Fetching issues from {start_date} to {end_date}")
+@app.post("/reports/projects")
+def post_reportsByProjects(roject_key): 
+    jira_api = get_jira_api()
+    print(f"Fetching information By {projects}")
 
-#     project = jira_api.get_one_project(project_key)[0]
-#     project_name = project['project_name']
+    print(f"Step 1: 取得專案基本資訊 (project_key={project_key})")
+    project = jira_api.get_one_project(project_key)[0]
+    project_name = project['project_name']
+    project_id = project['project_id']
+    print(f"✅ 專案名稱：{project_name}, 專案 ID：{project_id}")
 
-#     project_id = project['project_id']
+    print("Step 2: 取得該專案的所有 Issues")
+    issues = jira_api.get_issue_from_project_id(project_id)
+    project['issues'] = issues
+    print(f"✅ 已取得 {len(issues)} 筆 issue")
 
+    print("Step 3: 取得每個 Issue 的 Worklogs")
+    worklogs = []
+    if 'issues' in project:
+        for issue in project['issues']:
+            issue_id = issue['key']
+            worklogs = jira_api.get_worklog_from_issue_id(issue_id)
+            issue['worklogs'] = worklogs
+        print(f"✅ 所有 Issue 的 Worklogs 已載入完成")
 
-#     issues = Jira.get_issue_from_project_id(project_id)
-#     project['issues'] = issues
+    print("Step 4: 轉換每個 Worklog 的使用者 ID 為群組資訊")
+    for issue in project['issues']:
+        if 'worklogs' in issue:
+            for worklog in issue['worklogs']:
+                user_id = worklog['owner_id']
+                groups = jira_api.get_user_group_info_from_user_id(user_id)
+                worklog['groups'] = groups
+    print("✅ 使用者群組資訊已附加到每筆 Worklog")
 
-#     # Initialize worklogs to an empty list before the loop
-#     worklogs = []
+    print("Step 5: 準備轉換資料為 DataFrame 結構")
+    expected_columns = [
+        'project_key', 'project_name', 'project_category', 'issues',
+        'issues_name', 'issues_key', 'issues_assignee', 'issues_team', 'issues_status',
+        'worklog_owner_id', 'worklog_owner', 'worklog_time_spent_hr', 'worklog_start_date',
+        'worklog_comment', 'worklog_owner_EU', 'worklog_owner_level', 'worklog_owner_title'
+    ]
 
-#     if 'issues' in project:
-#         for issue in project['issues']:
-#             issue_id = issue['key']
-#             worklogs = Jira.get_worklog_from_issue_id(issue_id)
-#             issue['worklogs'] = worklogs
+    df = pd.DataFrame([project])
+    df_issues_exploded = df.explode("issues").reset_index(drop=True)
+    print("✅ 專案資料展開完成")
 
+    print("Step 6: 正規化 Issue 與 Worklog 結構")
+    if not df_issues_exploded['issues'].isnull().all():
+        df_issues_normalized = pd.json_normalize(df_issues_exploded.to_dict(orient="records"))
 
-#     # CONVERTING USER_ID TO INVOKE GROUPS FUNCTION
+        if 'issues.worklogs' in df_issues_normalized.columns:
+            df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
+            df_final = pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
+            print("✅ Worklogs 欄位展開完成")
 
-#     for worklog in worklogs:
-#         user_id = worklog['owner_id']
+            print("Step 7: 重新命名欄位並清理資料")
+            df_final = df_final.rename(columns={
+                'project_id': 'project_key',
+                'issues.worklogs.owner_id': 'worklog_owner_id',
+                'issues.worklogs.owner': 'worklog_owner',
+                'issues.worklogs.time_spent_hr': 'worklog_time_spent_hr',
+                'issues.worklogs.start_date': 'worklog_start_date',
+                'issues.worklogs.comment': 'worklog_comment',
+                'issues.worklogs.groups.Executive Unit': 'worklog_owner_EU',
+                'issues.worklogs.groups.Job Level': 'worklog_owner_level',
+                'issues.worklogs.groups.Job Title': 'worklog_owner_title',
+                'issues.name': 'issues_name',
+                'issues.key': 'issues_key',
+                'issues.assignee': 'issues_assignee',
+                'issues.team': 'issues_team',
+                'issues.status': 'issues_status'
+            })
 
+            # 移除不必要欄位
+            columns_to_drop = [col for col in ['issues.worklogs', 'issues'] if col in df_final.columns]
+            df_final = df_final.drop(columns_to_drop, axis=1, errors='ignore')
 
-#     for issue in project['issues']:
-#         if 'worklogs' in issue:
-#             for worklog in issue['worklogs']:
-#                 user_id = worklog['owner_id']
-#                 groups = Jira.get_user_group_info_from_user_id(user_id)
-#                 worklog['groups'] = groups
+            # 計算整個專案的總工時
+            total_time = df_final['worklog_time_spent_hr'].sum()
+            total_time = round(total_time, 1)
+            df_final.insert(0, 'total_time_spent', total_time)
+            print(f"✅ 專案總工時計算完成：{total_time} 小時")
 
-#     # Define expected columns for the final DataFrame
-#     expected_columns = [
-#         'project_key',
-#         'project_name',
-#         'project_category',
-#         'issues', # This column will be dropped later
-#         'issues_name',
-#         'issues_key',
-#         'issues_assignee',
-#         'issues_team',
-#         'issues_status',
-#         'worklog_owner_id',
-#         'worklog_owner',
-#         'worklog_time_spent_hr',
-#         'worklog_start_date',
-#         'worklog_comment',
-#         'worklog_owner_EU',
-#         'worklog_owner_level',
-#         'worklog_owner_title'
-#     ]
+        else:
+            print("⚠️ 此專案沒有任何 Worklogs，建立空的 DataFrame")
+            df_final = pd.DataFrame(columns=expected_columns)
+            if not df_issues_normalized.empty:
+                df_final['project_key'] = df_issues_normalized['project_id']
+                df_final['project_name'] = df_issues_normalized['project_name']
+                df_final['project_category'] = df_issues_normalized['project_category']
+            df_final.insert(0, 'total_time_spent', 0.0)
 
-#     df = pd.DataFrame([project])
-#     df_issues_exploded = df.explode("issues").reset_index(drop=True)
+    else:
+        print("⚠️ 專案中沒有任何 Issues，建立空的 DataFrame")
+        df_final = pd.DataFrame(columns=expected_columns)
+        df_final.insert(0, 'total_time_spent', 0.0)
 
-#     # Check if issues were found before normalizing
-#     if not df_issues_exploded['issues'].isnull().all():
-#         df_issues_normalized = pd.json_normalize(df_issues_exploded.to_dict(orient="records"))
+    print("Step 8: 輸出 CSV 檔案")
+    filename = f"{project_name}.csv"
+    output_path = f"{output_dir}/{filename}"
+    df_final.to_csv(output_path, index=False)
+    print(f"✅ 專案資料已匯出完成：{output_path}")
 
-#         # Check if the 'issues.worklogs' column exists before exploding
-#         if 'issues.worklogs' in df_issues_normalized.columns:
-#             df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
-#             df_final =  pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
-
-#             df_final = df_final.rename(columns={
-#                 'project_id': 'project_key',
-#                 'issues.worklogs.owner_id': 'worklog_owner_id',
-#                 'issues.worklogs.owner': 'worklog_owner',
-#                 'issues.worklogs.time_spent_hr': 'worklog_time_spent_hr',
-#                 'issues.worklogs.start_date': 'worklog_start_date',
-#                 'issues.worklogs.comment': 'worklog_comment',
-#                 'issues.worklogs.groups.Executive Unit': 'worklog_owner_EU',
-#                 'issues.worklogs.groups.Job Level': 'worklog_owner_level',
-#                 'issues.worklogs.groups.Job Title': 'worklog_owner_title',
-#                 'issues.name': 'issues_name',
-#                 'issues.key': 'issues_key',
-#                 'issues.assignee': 'issues_assignee',
-#                 'issues.team': 'issues_team',
-#                 'issues.status': 'issues_status'
-#             })
-
-#             # COLUMNS REMOVAL
-#             columns_to_drop = [col for col in ['issues.worklogs', 'issues'] if col in df_final.columns]
-#             df_final = df_final.drop(columns_to_drop, axis=1, errors='ignore')
-
-
-#             # ADDING TOTAL TIME SPENT IN a SINGLE PROJECT (ALL ISSUES SUMMED)
-#             col = df_final['worklog_time_spent_hr'].sum()
-#             col = round(col,1)
-#             df_final.insert(0, 'total_time_spent', col)
-
-#         else:
-#             # If no worklogs column, create an empty DataFrame with expected columns
-#             df_final = pd.DataFrame(columns=expected_columns)
-#             # Add the project details to the empty DataFrame
-#             if not df_issues_normalized.empty:
-#                 df_final['project_key'] = df_issues_normalized['project_id']
-#                 df_final['project_name'] = df_issues_normalized['project_name']
-#                 df_final['project_category'] = df_issues_normalized['project_category']
-#             # Add total time spent column with 0
-#             df_final.insert(0, 'total_time_spent', 0.0)
+    return df_final
 
 
-#     else:
-#         # If no issues found, create an empty DataFrame with expected columns
-#         df_final = pd.DataFrame(columns=expected_columns)
-#         # Add total time spent column with 0
-#         df_final.insert(0, 'total_time_spent', 0.0)
-
-
-#     filename =  (f'{project_name}.csv')
-
-#     # FOR GOOGLE COLAB
-
-#     df_final.to_csv(f'/content/gdrive/MyDrive/{filename}', index=False)
     
 
 if __name__ == "__main__":
