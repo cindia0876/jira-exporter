@@ -138,11 +138,7 @@ class JiraMonthlyAPI:
    
     # ---------Extended functioanlities to get active issues ----------------
 
-    def safe_get_value(field_dict, key):
-        value = field_dict.get(key)
-        if isinstance(value, dict):
-            return value.get("value")
-        return None
+
 
     def get_active_issues(
         self,
@@ -397,3 +393,9 @@ def user_data_to_df(user_data: list[dict]) -> pd.DataFrame:
         inplace=True,
     )
     return user_df
+
+def safe_get_value(field_dict, key):
+    value = field_dict.get(key)
+    if isinstance(value, dict):
+        return value.get("value")
+    return None
