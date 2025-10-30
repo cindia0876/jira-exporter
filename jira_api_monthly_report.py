@@ -321,7 +321,7 @@ def project_data_to_df(projects) -> pd.DataFrame:
         return pd.DataFrame()  # 空 list 回傳空 DataFrame
 
     # Step 1: 先 normalize project -> issues
-    df = pd.json_normalize(projects, record_path=['issues'], meta=['project_name', 'project_key', 'project_category'],record_prefix="issues_", errors='ignore')
+    df = pd.json_normalize(projects, record_path=['issues'], meta=['project_name', 'project_key', 'project_category'], errors='ignore')
     
     # Step 2: 將 worklogs explode
     if 'worklogs' in df.columns:
@@ -351,8 +351,12 @@ def project_data_to_df(projects) -> pd.DataFrame:
         df['worklog_start_date'] = pd.NaT
 
     # Step 5: 將 Parent_Key 與 Worklog_Type 移到最後
-    other_cols = [c for c in df.columns if c not in ['Parent_Key', 'Worklog_Type']]
-    df = df[other_cols + ['Parent_Key', 'Worklog_Type']]
+    project_cols = [c for c in df.columns if c.startswith('project_')]
+    other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
+    final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
+    df = df[[c for c in final_cols if c in df.columns]]  # 避免 KeyError
+    # other_cols = [c for c in df.columns if c not in ['Parent_Key', 'Worklog_Type']]
+    # df = df[other_cols + ['Parent_Key', 'Worklog_Type']]
 
     return df
 
