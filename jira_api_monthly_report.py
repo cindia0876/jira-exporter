@@ -196,8 +196,8 @@ class JiraMonthlyAPI:
                         parsed["issues_status"] = None
 
                     # 抓取客製化欄位 10142 和 10139 的值
-                    parsed["customfield_10142"] = safe_get_value(issue["fields"], "customfield_10142")
-                    parsed["customfield_10139"] =safe_get_value(issue["fields"], "customfield_10139")
+                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
+                    parsed["customfield_10139"] = safe_get_value(issue["fields"], "customfield_10139")
                     parsed_list.append(parsed)
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析issues")
@@ -337,7 +337,7 @@ def project_data_to_df(projects) -> pd.DataFrame:
     # Step 3: 改欄位名稱
     df.rename(columns={
         'customfield_10142': 'Parent_Key',
-        'customfield_10139.value': 'Worklog_Type',
+        'customfield_10139': 'Worklog_Type',
         'worklog_start_date': 'worklog_start_date',
         'worklog_owner': 'worklog_owner',
         'worklog_owner_id': 'worklog_owner_id',
