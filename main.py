@@ -100,7 +100,7 @@ def generate_report(start_date: str, end_date: str):
     user_data = {}
     for project in projects:
         for issue in project["issues"]:
-            issue["worklogs"] = jira_api.get_worklog_from_issue_id(issue["key"])
+            issue["worklogs"] = jira_api.get_worklog_from_issue_id(issue["issues_key"])
             for wl in issue["worklogs"]:
                 user_id = wl.get("owner_id")
                 if user_id and user_id not in user_data:
