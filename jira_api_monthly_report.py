@@ -321,7 +321,7 @@ def project_data_to_df(projects) -> pd.DataFrame:
         return pd.DataFrame()  # 空 list 回傳空 DataFrame
 
     # Step 1: 先 normalize project -> issues
-    df = pd.json_normalize(projects, record_path=['issues'], meta=['project_name', 'project_key', 'project_category'], errors='ignore')
+    df = pd.json_normalize(projects, record_path=['issues'], meta=['project_name', 'project_key', 'project_category'],record_prefix="issues_", errors='ignore')
     
     # Step 2: 將 worklogs explode
     if 'worklogs' in df.columns:
