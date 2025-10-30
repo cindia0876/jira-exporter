@@ -354,9 +354,7 @@ def project_data_to_df(projects) -> pd.DataFrame:
     project_cols = [c for c in df.columns if c.startswith('project_')]
     other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
     final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
-    df = df[[c for c in final_cols if c in df.columns]]  # 避免 KeyError
-    # other_cols = [c for c in df.columns if c not in ['Parent_Key', 'Worklog_Type']]
-    # df = df[other_cols + ['Parent_Key', 'Worklog_Type']]
+    df = df[[c for c in final_cols if c in df.columns]] 
 
     return df
 

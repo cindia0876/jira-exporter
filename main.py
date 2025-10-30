@@ -193,20 +193,20 @@ def post_monthlyReports(daterange: DateRange):
 #         project_key (str): JIRA 專案代碼
 # -----------------------------------
 @app.get("/reports/projects")
-def post_reportsByProjects(roject_key): 
+def post_reportsByProjects(project_key): 
     jira_api = init_jira_api("project")
-    print(f"Fetching information By {projects}")
+    print(f"Fetching information By {project_key}")
 
-    print(f"Step 1: 取得專案基本資訊 (project_key={project_key})")
+    print(f"Step 1: 取得專案基本資訊")
     project = jira_api.get_one_project(project_key)[0]
     project_name = project['project_name']
     project_id = project['project_id']
-    print(f"✅ 專案名稱：{project_name}, 專案 ID：{project_id}")
+    print(f"[INFO] 專案名稱：{project_name}, 專案 ID：{project_id}")
 
     print("Step 2: 取得該專案的所有 Issues")
     issues = jira_api.get_issue_from_project_id(project_id)
     project['issues'] = issues
-    print(f"✅ 已取得 {len(issues)} 筆 issue")
+    print(f"[INFO] 專案 {project_id} 總共取得 {len(issues)} 筆 Issues")
 
     print("Step 3: 取得每個 Issue 的 Worklogs")
     worklogs = []
@@ -215,7 +215,7 @@ def post_reportsByProjects(roject_key):
             issue_id = issue['key']
             worklogs = jira_api.get_worklog_from_issue_id(issue_id)
             issue['worklogs'] = worklogs
-        print(f"✅ 所有 Issue 的 Worklogs 已載入完成")
+        print(f"[INFO] 所有 Issue 的 Worklogs 已載入完成")
 
     print("Step 4: 轉換每個 Worklog 的使用者 ID 為群組資訊")
     for issue in project['issues']:
@@ -224,7 +224,7 @@ def post_reportsByProjects(roject_key):
                 user_id = worklog['owner_id']
                 groups = jira_api.get_user_group_info_from_user_id(user_id)
                 worklog['groups'] = groups
-    print("✅ 使用者群組資訊已附加到每筆 Worklog")
+    print("[INFO] 使用者群組資訊已附加到每筆 Worklog")
 
     print("Step 5: 準備轉換資料為 DataFrame 結構")
     expected_columns = [
@@ -236,7 +236,7 @@ def post_reportsByProjects(roject_key):
 
     df = pd.DataFrame([project])
     df_issues_exploded = df.explode("issues").reset_index(drop=True)
-    print("✅ 專案資料展開完成")
+    print("[INFO] 專案資料展開完成")
 
     print("Step 6: 正規化 Issue 與 Worklog 結構")
     if not df_issues_exploded['issues'].isnull().all():
@@ -245,7 +245,7 @@ def post_reportsByProjects(roject_key):
         if 'issues.worklogs' in df_issues_normalized.columns:
             df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
             df_final = pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
-            print("✅ Worklogs 欄位展開完成")
+            print("[INFO] Worklogs 欄位展開完成")
 
             print("Step 7: 重新命名欄位並清理資料")
             df_final = df_final.rename(columns={
@@ -273,10 +273,10 @@ def post_reportsByProjects(roject_key):
             total_time = df_final['worklog_time_spent_hr'].sum()
             total_time = round(total_time, 1)
             df_final.insert(0, 'total_time_spent', total_time)
-            print(f"✅ 專案總工時計算完成：{total_time} 小時")
+            print(f"[INFO] 專案總工時計算完成：{total_time} 小時")
 
         else:
-            print("⚠️ 此專案沒有任何 Worklogs，建立空的 DataFrame")
+            print("[WARN] 此專案沒有任何 Worklogs，建立空的 DataFrame")
             df_final = pd.DataFrame(columns=expected_columns)
             if not df_issues_normalized.empty:
                 df_final['project_key'] = df_issues_normalized['project_id']
@@ -285,17 +285,21 @@ def post_reportsByProjects(roject_key):
             df_final.insert(0, 'total_time_spent', 0.0)
 
     else:
-        print("⚠️ 專案中沒有任何 Issues，建立空的 DataFrame")
+        print("[WARN] 專案中沒有任何 Issues，建立空的 DataFrame")
         df_final = pd.DataFrame(columns=expected_columns)
         df_final.insert(0, 'total_time_spent', 0.0)
 
     print("Step 8: 輸出 CSV 檔案")
-    filename = f"{project_name}.csv"
-    output_path = f"{output_dir}/{filename}"
-    df_final.to_csv(output_path, index=False)
-    print(f"✅ 專案資料已匯出完成：{output_path}")
-
-    return df_final
+    filename = f"jiraReport_{project_name}.csv"
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob = bucket.blob(filename)
+    blob.upload_from_string(
+        df_final.to_csv(index=False, encoding="utf-8-sig"),
+        content_type="text/csv; charset=utf-8"
+    )
+    print(f"[SUCCESS] 輸出檔案")
+    return {"message": "Report generated", "filename": filename}
 
 if __name__ == "__main__":
     import uvicorn

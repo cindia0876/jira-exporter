@@ -6,8 +6,6 @@ import dateutil.parser
 from dateutil.parser import isoparse
 import pandas as pd
 
-
-#標籤
 GROUPS = {
     "Executive Unit": [
         "AWS-TW",
@@ -52,7 +50,7 @@ class JiraProjectAPI:
     # GET PROJECT NAME
     def get_one_project(self, key: str,raw: bool = False,) -> list[dict]:
 
-        url = f"{self.domain}/rest/api/2/project/{key}"
+        url = f"{self.domain}/rest/api/3/project/{key}"
         response = requests.get(url, headers=self.header, auth=self.auth)
         data = response.json()
         if raw:
@@ -71,37 +69,80 @@ class JiraProjectAPI:
     # GET ISSUE
 
     def get_issue_from_project_id(
-            self, project_id: str, raw: bool = False
-        ) -> list[dict]:
+        self,
+        project_id: str,
+        max_results: int = 50,
+        start_at: int = 0,
+        raw: bool = False
+    ) -> list[dict]:
+        """
+        Get all issues from a given Jira project (with pagination support).
+        """
+        print(f"[INFO] 開始取得專案 {project_id} 的 Issues（含分頁）")
+        issues = []
+        next_page_token = None
+        while True:
+            # Step 1️⃣ 組合查詢參數
+            query = {
+                "jql": f'project="{project_id}" ORDER BY created ASC, key ASC',
+                "fields": "summary,assignee,customfield_10001,customfield_10039",
+                "maxResults": max_results,
+                "startAt": start_at,
+            }
+            if next_page_token:
+                query["nextPageToken"] = next_page_token
 
-            url = f"{self.domain}/rest/api/2/search"
-            query = {"jql": f'project= "{project_id}"'}
-            response = requests.get(url, headers=self.header, params=query, auth=self.auth)
+            url = f"{self.domain}/rest/api/3/search/jql"
+
+            # Step 2️⃣ 發送請求
+            response = requests.get(url, headers=self.header, auth=self.auth, params=query)
+            if response.status_code != 200:
+                print(f"[ERROR] /search/jql：issues獲取失敗 ({response.status_code})")
+                raise PermissionError(response.text)
+
             data = response.json()
+            next_page_token = data.get("nextPageToken")
+            print(f"[DEBUG] next_page_token: {next_page_token}")
+
+            # Step 3️⃣ 若使用 raw 模式，直接返回原始 JSON
             if raw:
-                return data
-            if data.get("issues") is None:
-                return []
-            issues: list[dict] = data["issues"]
-            parsed_list = []
-            for issue in issues:
-                parsed = {}
-                parsed["name"] = issue["fields"].get("summary")
-                parsed["key"] = issue.get("key")
-                if issue["fields"].get("assignee"):
-                    parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
-                else:
-                    parsed["assignee"] = None
-                if issue["fields"].get("customfield_10001"):
-                    parsed["team"] = issue["fields"]["customfield_10001"]["name"]
-                else:
-                    parsed["status"] = None
-                if issue["fields"].get("customfield_10039"):
-                    parsed["status"] = issue["fields"]["customfield_10039"]["value"]
-                else:
-                    parsed["status"] = None
-                parsed_list.append(parsed)
-            return parsed_list
+                issues.extend(data.get("issues", []))
+            else:
+                parsed_list = []
+                print(f"[INFO] 開始解析 Issues（目前 startAt={start_at}）")
+
+                for issue in data.get("issues", []):
+                    parsed = {}
+                    parsed["name"] = issue["fields"].get("summary")
+                    parsed["key"] = issue.get("key")
+
+                    if issue["fields"].get("assignee"):
+                        parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
+                    else:
+                        parsed["assignee"] = None
+
+                    if issue["fields"].get("customfield_10001"):
+                        parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+                    else:
+                        parsed["team"] = None
+
+                    if issue["fields"].get("customfield_10039"):
+                        parsed["status"] = issue["fields"]["customfield_10039"]["value"]
+                    else:
+                        parsed["status"] = None
+
+                    parsed_list.append(parsed)
+
+                issues.extend(parsed_list)
+                print(f"[INFO] 結束解析 Issues，本頁共 {len(parsed_list)} 筆")
+
+            # Step 4️⃣ 檢查是否有下一頁
+            if not next_page_token:
+                print(f"[INFO] 已到最後一頁，結束分頁查詢")
+                break
+
+            start_at += max_results
+        return issues
 
 
 
@@ -110,9 +151,6 @@ class JiraProjectAPI:
 
     global issue_id
     def get_worklog_from_issue_id(self, issue_id: str, raw: bool = False) -> list[dict]:
-
-
-
         url = f"{self.domain}/rest/api/2/issue/{issue_id}/worklog"
         response = requests.get(url, headers=self.header, auth=self.auth)
         data = response.json()
@@ -135,18 +173,6 @@ class JiraProjectAPI:
             parsed["comment"] = worklog.get("comment")
             parsed_list.append(parsed)
         return parsed_list
-
-
-
-    # def load_groups(path: str = "GROUPS"):
-
-    #     with open(path, "r") as f:
-    #         data = GROUPS
-    #     return data
-
-    # GROUPS = load_groups()
-
-
 
     def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
 
