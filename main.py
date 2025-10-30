@@ -82,7 +82,7 @@ def init_jira_api(api_type: str):
 # 共用報表生成函數
 # -----------------------------------
 def generate_report(start_date: str, end_date: str):
-    jira_api = get_jira_api("monthly")
+    jira_api = init_jira_api("monthly")
     print(f"Fetching issues from {start_date} to {end_date}")
 
     print(f"Step 1: 取得 issues")
@@ -192,7 +192,7 @@ def post_monthlyReports(daterange: DateRange):
 # -----------------------------------
 @app.post("/reports/projects")
 def post_reportsByProjects(roject_key): 
-    jira_api = get_jira_api()
+    jira_api = init_jira_api("project")
     print(f"Fetching information By {projects}")
 
     print(f"Step 1: 取得專案基本資訊 (project_key={project_key})")
