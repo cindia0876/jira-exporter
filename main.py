@@ -184,6 +184,8 @@ def post_reportsByProjects(project_key):
 
     print(f"Step 1: 取得專案基本資訊")
     project = jira_api.get_one_project(project_key)[0]
+    if project == None:
+        return {"message": "查無專案ID為 {project_name} 的專案，請確認project_key後重新查詢", "filename": "None"}
     project_name = project['project_name']
     project_id = project['project_id']
     print(f"[INFO] 專案名稱：{project_name}, 專案 ID：{project_id}")
