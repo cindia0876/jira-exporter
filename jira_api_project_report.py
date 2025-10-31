@@ -211,3 +211,9 @@ def process_projects(projects, user_data, Jira):
         project["issues"] = Jira.get_issue_from_project_id(project["project_key"])
         if project["issues"]:
             process_issues(project, user_data, Jira)
+
+def safe_get_value(field_dict, key):
+    value = field_dict.get(key)
+    if isinstance(value, dict):
+        return value.get("value")
+    return None
