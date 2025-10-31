@@ -7,3 +7,4 @@ uvicorn
 google-cloud-storage
 gunicorn
 google-cloud-secret-manager
+xlsxwriter
