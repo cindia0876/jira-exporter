@@ -9,6 +9,7 @@ from google.cloud import storage
 from google.cloud import secretmanager
 from datetime import date, datetime
 import calendar
+from io import BytesIO
 
 # 建立 FastAPI App
 app = FastAPI()
@@ -118,7 +119,7 @@ def generate_report(start_date: str, end_date: str):
     filtered_df = filter_df_by_date(df, start, end)
     print(f"[INFO] 過濾後筆數：{len(filtered_df)}")
 
-    print(f"Step 6: 存入GCS")
+    print(f"Step 6: 輸出檔案並存入GCS")
     filename = f"jiraReport_{start_date}_{end_date}.csv"
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
@@ -183,9 +184,10 @@ def post_reportsByProjects(project_key):
     print(f"Fetching information By {project_key}")
 
     print(f"Step 1: 取得專案基本資訊")
-    project = jira_api.get_one_project(project_key)[0]
-    if project == None:
+    projects = jira_api.get_one_project(project_key)
+    if not projects:
         return {"message": "查無專案ID為 {project_name} 的專案，請確認project_key後重新查詢", "filename": "None"}
+    project = projects[0]
     project_name = project['project_name']
     project_id = project['project_id']
     print(f"[INFO] 專案名稱：{project_name}, 專案 ID：{project_id}")
@@ -279,15 +281,37 @@ def post_reportsByProjects(project_key):
         # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
         # df_final.insert(0, 'total_time_spent', 0.0)
 
-    print("Step 8: 輸出 CSV 檔案")
-    filename = f"jiraReport_{project_name}.csv"
+    print("Step 8: 統計每位 worklog_owner 的總工時")
+    summary_df = (
+        df_final.groupby("worklog_owner", as_index=False)
+        .agg({"worklog_time_spent_hr": "sum"})
+        .rename(columns={"worklog_time_spent_hr": "total_time_spent_hr"})
+    )
+
+    summary_df = summary_df.sort_values(by="total_time_spent_hr", ascending=False)
+    print(f"[INFO] 共 {len(summary_df)} 位成員，已完成工時統計")
+
+    print("Step 9: 輸出檔案並存入GCS")
+    filename = f"jiraReport_{project_name}.xlsx"
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df_final.to_excel(writer, sheet_name="Worklogs_Detail", index=False)
+        summary_df.to_excel(writer, sheet_name="Worklogs_Summary", index=False)
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
     blob.upload_from_string(
-        df_final.to_csv(index=False, encoding="utf-8-sig"),
-        content_type="text/csv; charset=utf-8"
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    # filename = f"jiraReport_{project_name}.csv"
+    # client = storage.Client()
+    # bucket = client.bucket(GCS_BUCKET)
+    # blob = bucket.blob(filename)
+    # blob.upload_from_string(
+    #     df_final.to_csv(index=False, encoding="utf-8-sig"),
+    #     content_type="text/csv; charset=utf-8"
+    # )
     print(f"[SUCCESS] 輸出檔案")
     return {"message": "Report generated", "filename": filename}
 
