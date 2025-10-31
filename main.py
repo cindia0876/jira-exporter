@@ -232,8 +232,12 @@ def post_reportsByProjects(project_key):
         df_issues_normalized = pd.json_normalize(df_issues_exploded.to_dict(orient="records"))
 
         if 'issues.worklogs' in df_issues_normalized.columns:
-            df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
-            df_final = pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
+            # df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
+            # df_final = pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
+            df_final = pd.json_normalize(
+                data=df_worklogs_exploded.to_dict(orient="records"),
+                sep="."  # 讓巢狀欄位自動用 . 命名
+            )
             print("[INFO] Worklogs 欄位展開完成")
 
             print("Step 7: 重新命名欄位並清理資料")

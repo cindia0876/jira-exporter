@@ -84,7 +84,7 @@ class JiraProjectAPI:
             # Step 1️⃣ 組合查詢參數
             query = {
                 "jql": f'project="{project_id}" ORDER BY created ASC, key ASC',
-                "fields": "summary,assignee,customfield_10001,customfield_10039",
+                "fields": "summary,assignee,customfield_10001,customfield_10035,customfield_10142,customfield_10139",
                 "maxResults": max_results,
                 "startAt": start_at,
             }
@@ -125,13 +125,15 @@ class JiraProjectAPI:
                     else:
                         parsed["team"] = None
 
-                    if issue["fields"].get("customfield_10039"):
-                        parsed["status"] = issue["fields"]["customfield_10039"]["value"]
+                    if issue["fields"].get("customfield_10035"):
+                        parsed["status"] = issue["fields"]["customfield_10035"]["value"]
                     else:
                         parsed["status"] = None
-
+                    
+                    # 抓取客製化欄位 10142 和 10139 的值
+                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
+                    parsed["customfield_10139"] = safe_get_value(issue["fields"], "customfield_10139")
                     parsed_list.append(parsed)
-
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析 Issues，本頁共 {len(parsed_list)} 筆")
 
