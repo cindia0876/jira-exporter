@@ -128,24 +128,10 @@ def generate_report(start_date: str, end_date: str):
 
     return {"message": "Report generated", "filename": filename}
 
-# ===== POST Body schema =====
-class DateRange(BaseModel):
-    start_date: str
-    end_date: str
-
-    @validator("start_date", "end_date")
-    def check_date_format(cls, v):
-        try:
-            datetime.strptime(v, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError("Date must be YYYY-MM-DD")
-        return v
-
 # -----------------------------------
 # GET API: 每個月自動匯出月報表
 # -----------------------------------
-# @app.get("/reports/monthly/auto")
-@app.get("/")
+@app.get("/reports/monthly/auto")
 def get_monthlyReportsAuto():
     try:
         # 今天
@@ -178,14 +164,13 @@ def get_monthlyReportsAuto():
 #         end_date (str): 結束日期(如：2025-09-01)
 # -----------------------------------
 @app.get("/reports/monthly")
-def post_monthlyReports(daterange: DateRange):
+def post_monthlyReports(start_date: str, end_date: str):
     try:
-        return generate_report(daterange.start_date, daterange.end_date)
+        return generate_report(start_date, end_date)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # -----------------------------------
 # POST API: 依照「專案」匯出報表
