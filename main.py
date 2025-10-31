@@ -286,7 +286,7 @@ def post_reportsByProjects(project_key):
         df_final['worklog_month'] = pd.to_datetime(df_final['worklog_start_date']).dt.strftime('%Y-%m')
 
         # 建立依月份彙總的樞紐表
-        pivot_df = (
+        summary_df = (
             df_final.pivot_table(
                 index='worklog_owner',
                 columns='worklog_month',
@@ -298,16 +298,16 @@ def post_reportsByProjects(project_key):
         )
 
         # 加上總工時欄位
-        pivot_df['total_time_spent_hr'] = pivot_df.iloc[:, 1:].sum(axis=1)
+        summary_df['total_time_spent_hr'] = summary_df.iloc[:, 1:].sum(axis=1)
 
         # 按總工時排序
-        pivot_df = pivot_df.sort_values(by='total_time_spent_hr', ascending=False)
+        summary_df = summary_df.sort_values(by='total_time_spent_hr', ascending=False)
 
-        print(f"[INFO] Summary_ByMonth 建立完成，共 {len(pivot_df)} 位成員")
+        print(f"[INFO] Summary_ByMonth 建立完成，共 {len(summary_df)} 位成員")
 
     else:
         print("[WARN] 無 Worklog 資料，建立空的 Summary_ByMonth")
-        pivot_df = pd.DataFrame(columns=['worklog_owner', 'total_time_spent_hr'])
+        summary_df = pd.DataFrame(columns=['worklog_owner', 'total_time_spent_hr'])
 
     print("Step 9: 輸出檔案並存入GCS")
     filename = f"jiraReport_{project_name}.xlsx"
