@@ -138,8 +138,6 @@ class JiraMonthlyAPI:
    
     # ---------Extended functioanlities to get active issues ----------------
 
-
-
     def get_active_issues(
         self,
         start_date: str,

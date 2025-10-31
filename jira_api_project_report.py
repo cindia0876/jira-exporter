@@ -67,7 +67,6 @@ class JiraProjectAPI:
         return parsed_list
 
     # GET ISSUE
-
     def get_issue_from_project_id(
         self,
         project_id: str,
@@ -144,11 +143,6 @@ class JiraProjectAPI:
             start_at += max_results
         return issues
 
-
-
-    # worklog_owner, worklog_owner_id	worklog_start_date	worklog_time_spent_hr	worklog_comment
-
-
     global issue_id
     def get_worklog_from_issue_id(self, issue_id: str, raw: bool = False) -> list[dict]:
         url = f"{self.domain}/rest/api/2/issue/{issue_id}/worklog"
@@ -175,32 +169,26 @@ class JiraProjectAPI:
         return parsed_list
 
     def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
+        url = f"{self.domain}/rest/api/2/user"
 
+        query = {"accountId": user_id, "expand": "groups,applicationRoles"}
+        response = requests.get(url, headers=self.header, params=query, auth=self.auth)
+        data = response.json()
+        if raw:
+            return data
 
-            url = f"{self.domain}/rest/api/2/user"
+        user_labels = {"user_id": user_id}
+        if "groups" in data and "items" in data["groups"]:
+            user_groups = [item["name"] for item in data["groups"]["items"]]
+            for category, names in GROUPS.items():
+                for name in names:
+                    if name in user_groups:
+                        user_labels[category] = name
+        else:
+            logging.warning(f"No groups found for user ID: {user_id}")
+            user_labels["groups"] = None
 
-            query = {"accountId": user_id, "expand": "groups,applicationRoles"}
-            response = requests.get(url, headers=self.header, params=query, auth=self.auth)
-            data = response.json()
-            if raw:
-                return data
-
-            user_labels = {"user_id": user_id}
-            # groups = load_groups()
-
-            if "groups" in data and "items" in data["groups"]:
-                user_groups = [item["name"] for item in data["groups"]["items"]]
-                for category, names in GROUPS.items():
-                    for name in names:
-                        if name in user_groups:
-                            user_labels[category] = name
-            else:
-                logging.warning(f"No groups found for user ID: {user_id}")
-                user_labels["groups"] = None
-
-            return user_labels
-
-
+        return user_labels
 
 def process_worklogs(issue, user_data, Jira):
     for worklog in issue["worklogs"]:

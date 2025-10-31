@@ -272,7 +272,8 @@ def post_reportsByProjects(project_key):
             # 計算整個專案的總工時
             total_time = df_final['worklog_time_spent_hr'].sum()
             total_time = round(total_time, 1)
-            df_final.insert(0, 'total_time_spent', total_time)
+            # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
+            # df_final.insert(0, 'total_time_spent', total_time) 
             print(f"[INFO] 專案總工時計算完成：{total_time} 小時")
 
         else:
@@ -282,12 +283,14 @@ def post_reportsByProjects(project_key):
                 df_final['project_key'] = df_issues_normalized['project_id']
                 df_final['project_name'] = df_issues_normalized['project_name']
                 df_final['project_category'] = df_issues_normalized['project_category']
-            df_final.insert(0, 'total_time_spent', 0.0)
+            # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
+            # df_final.insert(0, 'total_time_spent', 0.0)
 
     else:
         print("[WARN] 專案中沒有任何 Issues，建立空的 DataFrame")
         df_final = pd.DataFrame(columns=expected_columns)
-        df_final.insert(0, 'total_time_spent', 0.0)
+        # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
+        # df_final.insert(0, 'total_time_spent', 0.0)
 
     print("Step 8: 輸出 CSV 檔案")
     filename = f"jiraReport_{project_name}.csv"
