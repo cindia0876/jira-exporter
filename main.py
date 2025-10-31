@@ -256,7 +256,9 @@ def post_reportsByProjects(project_key):
                 'issues.key': 'issues_key',
                 # 'issues.assignee': 'issues_assignee',
                 'issues.team': 'issues_team',
-                'issues.status': 'issues_status'
+                'issues.status': 'issues_status',
+                'customfield_10142': 'Parent_Key',
+                'customfield_10139': 'Worklog_Type',
             })
 
             # 移除不必要欄位
