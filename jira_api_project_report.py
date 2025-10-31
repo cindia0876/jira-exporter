@@ -170,54 +170,54 @@ class JiraProjectAPI:
             parsed_list.append(parsed)
         return parsed_list
 
-    # def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
-    #     url = f"{self.domain}/rest/api/2/user"
-
-    #     query = {"accountId": user_id, "expand": "groups,applicationRoles"}
-    #     response = requests.get(url, headers=self.header, params=query, auth=self.auth)
-    #     data = response.json()
-    #     if raw:
-    #         return data
-
-    #     user_labels = {"user_id": user_id}
-    #     if "groups" in data and "items" in data["groups"]:
-    #         user_groups = [item["name"] for item in data["groups"]["items"]]
-    #         for category, names in GROUPS.items():
-    #             for name in names:
-    #                 if name in user_groups:
-    #                     user_labels[category] = name
-    #     else:
-    #         logging.warning(f"No groups found for user ID: {user_id}")
-    #         user_labels["groups"] = None
-
-    #     return user_labels
     def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
-        url = f"{self.domain}/rest/api/2/user"
+        url = f"{self.domain}/rest/api/3/user"
+
         query = {"accountId": user_id, "expand": "groups,applicationRoles"}
         response = requests.get(url, headers=self.header, params=query, auth=self.auth)
         data = response.json()
         if raw:
             return data
 
-        # 初始化所有欄位為 None
-        user_labels = {
-            "user_id": user_id,
-            "Executive Unit": None,
-            "Job Level": None,
-            "Job Title": None
-        }
-
+        user_labels = {"user_id": user_id}
         if "groups" in data and "items" in data["groups"]:
             user_groups = [item["name"] for item in data["groups"]["items"]]
             for category, names in GROUPS.items():
                 for name in names:
                     if name in user_groups:
                         user_labels[category] = name
-                        break  # 找到第一個匹配就停
         else:
             logging.warning(f"No groups found for user ID: {user_id}")
+            user_labels["groups"] = None
 
         return user_labels
+    # def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
+    #     url = f"{self.domain}/rest/api/3/user"
+    #     query = {"accountId": user_id, "expand": "groups,applicationRoles"}
+    #     response = requests.get(url, headers=self.header, params=query, auth=self.auth)
+    #     data = response.json()
+    #     if raw:
+    #         return data
+
+    #     # 初始化所有欄位為 None
+    #     user_labels = {
+    #         "user_id": user_id,
+    #         "Executive Unit": None,
+    #         "Job Level": None,
+    #         "Job Title": None
+    #     }
+
+    #     if "groups" in data and "items" in data["groups"]:
+    #         user_groups = [item["name"] for item in data["groups"]["items"]]
+    #         for category, names in GROUPS.items():
+    #             for name in names:
+    #                 if name in user_groups:
+    #                     user_labels[category] = name
+    #                     break  # 找到第一個匹配就停
+    #     else:
+    #         logging.warning(f"No groups found for user ID: {user_id}")
+
+    #     return user_labels
 
 
 def process_worklogs(issue, user_data, Jira):

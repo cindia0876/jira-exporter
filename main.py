@@ -218,9 +218,9 @@ def post_reportsByProjects(project_key):
     print("Step 5: 準備轉換資料為 DataFrame 結構")
     expected_columns = [
         'project_key', 'project_name', 'project_category', 'issues',
-        'issues_name', 'issues_key', 'issues_assignee', 'issues_team', 'issues_status',
-        'worklog_owner_id', 'worklog_owner', 'worklog_time_spent_hr', 'worklog_start_date',
-        'worklog_comment', 'worklog_owner_EU', 'worklog_owner_level', 'worklog_owner_title'
+        'issues_name', 'issues_key', 'issues_team', 'issues_status',
+        'worklog_owner', 'worklog_time_spent_hr', 'worklog_start_date',
+        'worklog_owner_EU', 'worklog_owner_level', 'worklog_owner_title'
     ]
 
     df = pd.DataFrame([project])
@@ -244,23 +244,23 @@ def post_reportsByProjects(project_key):
             print("Step 7: 重新命名欄位並清理資料")
             df_final = df_final.rename(columns={
                 'project_id': 'project_key',
-                'issues.worklogs.owner_id': 'worklog_owner_id',
+                # 'issues.worklogs.owner_id': 'worklog_owner_id',
                 'issues.worklogs.owner': 'worklog_owner',
                 'issues.worklogs.time_spent_hr': 'worklog_time_spent_hr',
                 'issues.worklogs.start_date': 'worklog_start_date',
-                'issues.worklogs.comment': 'worklog_comment',
+                # 'issues.worklogs.comment': 'worklog_comment',
                 'issues.worklogs.groups.Executive Unit': 'worklog_owner_EU',
                 'issues.worklogs.groups.Job Level': 'worklog_owner_level',
                 'issues.worklogs.groups.Job Title': 'worklog_owner_title',
                 'issues.name': 'issues_name',
                 'issues.key': 'issues_key',
-                'issues.assignee': 'issues_assignee',
+                # 'issues.assignee': 'issues_assignee',
                 'issues.team': 'issues_team',
                 'issues.status': 'issues_status'
             })
 
             # 移除不必要欄位
-            columns_to_drop = [col for col in ['issues.worklogs', 'issues'] if col in df_final.columns]
+            columns_to_drop = [col for col in ['issues.worklogs', 'issues','issues.worklogs.groups.user_id'] if col in df_final.columns]
             df_final = df_final.drop(columns_to_drop, axis=1, errors='ignore')
 
             # 計算整個專案的總工時
