@@ -147,8 +147,8 @@ def get_monthlyReportsAuto():
         # 上個月的第一天
         first_day = date(year, month, 1)
 
-        # 上個月的最後一天
-        last_day = date(year, month, calendar.monthrange(year, month)[1])
+        # 這個月的第一天
+        last_day = date(today.year, today.month, 1)
 
         start_date = first_day.strftime("%Y-%m-%d")
         end_date = last_day.strftime("%Y-%m-%d")
