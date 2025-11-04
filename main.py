@@ -227,12 +227,12 @@ def post_reportsByProjects(project_key):
         df['worklog_time_spent_hr'] = None
 
     print("Step 6: [開始] 統計每位 worklog_owner 的總工時")
-    if not df_final.empty:
-        df_final['worklog_month'] = pd.to_datetime(df_final['worklog_start_date']).dt.strftime('%Y-%m')
+    if not df.empty:
+        df['worklog_month'] = pd.to_datetime(df['worklog_start_date']).dt.strftime('%Y-%m')
 
         # 建立依月份彙總的樞紐表
         summary_df = (
-            df_final.pivot_table(
+            df.pivot_table(
                 index='worklog_owner',
                 columns='worklog_month',
                 values='worklog_time_spent_hr',
