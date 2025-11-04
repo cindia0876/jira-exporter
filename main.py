@@ -226,138 +226,7 @@ def post_reportsByProjects(project_key):
         df['worklog_start_date'] = pd.NaT
         df['worklog_time_spent_hr'] = None
 
-    # Step 3: 改欄位名稱 & 移除多餘欄位
-    df.rename(columns={
-        'worklog_groups.Executive Unit': 'worklog_owner_EU',
-        'worklog_groups.Job Level': 'worklog_owner_level',
-        'worklog_groups.Job Title': 'worklog_owner_title',
-    }, inplace=True)
-
-    columns_to_drop = [
-        'worklog_groups.user_id',
-        'worklog_owner_id',
-        'worklog_month'
-    ]
-    df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
-
-    # Step 4: 確保 worklog_start_date 是 datetime
-    if 'worklog_start_date' in df.columns:
-        df['worklog_start_date'] = pd.to_datetime(df['worklog_start_date'], errors='coerce').dt.date
-    else:
-        df['worklog_start_date'] = pd.NaT
-
-    # Step 5: 將 Parent_Key 與 Worklog_Type 移到最後
-    project_cols = [c for c in df.columns if c.startswith('project_')]
-    other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
-    final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
-    df_final = df[[c for c in final_cols if c in df.columns]] 
-    
-    # print(f"Step 1: 取得專案基本資訊")
-    # projects = jira_api.get_one_project(project_key)
-    # if not projects:
-    #     return {"message": "查無專案ID為 {project_name} 的專案，請確認project_key後重新查詢", "filename": "None"}
-    # project = projects[0]
-    # project_name = project['project_name']
-    # project_id = project['project_key']
-    # print(f"[INFO] 專案名稱：{project_name}, 專案 ID：{project_id}")
-
-    # print("Step 2: 取得該專案的所有 Issues")
-    # issues = jira_api.get_issue_from_project_id(project_id)
-    # project['issues'] = issues
-    # print(f"[INFO] 專案 {project_id} 總共取得 {len(issues)} 筆 Issues")
-
-    # print("Step 3: 取得每個 Issue 的 Worklogs")
-    # worklogs = []
-    # if 'issues' in project:
-    #     for issue in project['issues']:
-    #         issue_id = issue['issues_key']
-    #         worklogs = jira_api.get_worklog_from_issue_id(issue_id)
-    #         issue['worklogs'] = worklogs
-    #     print(f"[INFO] 所有 Issue 的 Worklogs 已載入完成")
-
-    # print("Step 4: 轉換每個 Worklog 的使用者 ID 為群組資訊")
-    # for issue in project['issues']:
-    #     if 'worklogs' in issue:
-    #         for worklog in issue['worklogs']:
-    #             user_id = worklog['owner_id']
-    #             groups = jira_api.get_user_group_info_from_user_id(user_id)
-    #             worklog['groups'] = groups
-    # print("[INFO] 使用者群組資訊已附加到每筆 Worklog")
-
-    # print("Step 5: 準備轉換資料為 DataFrame 結構")
-    # expected_columns = [
-    #     'project_key', 'project_name', 'project_category', 'issues',
-    #     'issues_name', 'issues_key', 'issues_team', 'issues_status',
-    #     'worklog_owner', 'worklog_time_spent_hr', 'worklog_start_date',
-    #     'worklog_owner_EU', 'worklog_owner_level', 'worklog_owner_title'
-    # ]
-
-    # df = pd.DataFrame([project])
-    # df_issues_exploded = df.explode("issues").reset_index(drop=True)
-    # print("[INFO] 專案資料展開完成")
-
-    # print("Step 6: 正規化 Issue 與 Worklog 結構")
-    # if not df_issues_exploded['issues'].isnull().all():
-    #     df_issues_normalized = pd.json_normalize(df_issues_exploded.to_dict(orient="records"))
-
-    #     if 'issues.worklogs' in df_issues_normalized.columns:
-    #         # df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
-    #         # df_final = pd.json_normalize(df_worklogs_exploded.to_dict(orient="records"))
-    #         df_worklogs_exploded = df_issues_normalized.explode("issues.worklogs").reset_index(drop=True)
-    #         df_final = pd.json_normalize(
-    #             data=df_worklogs_exploded.to_dict(orient="records"),
-    #             sep="."  # 讓巢狀欄位自動用 . 命名
-    #         )
-    #         print("[INFO] Worklogs 欄位展開完成")
-
-    #         print("Step 7: 重新命名欄位並清理資料")
-    #         df_final = df_final.rename(columns={
-    #             'project_id': 'project_key',
-    #             # 'issues.worklogs.owner_id': 'worklog_owner_id',
-    #             'issues.worklogs.owner': 'worklog_owner',
-    #             'issues.worklogs.time_spent_hr': 'worklog_time_spent_hr',
-    #             'issues.worklogs.start_date': 'worklog_start_date',
-    #             # 'issues.worklogs.comment': 'worklog_comment',
-    #             'issues.worklogs.groups.Executive Unit': 'worklog_owner_EU',
-    #             'issues.worklogs.groups.Job Level': 'worklog_owner_level',
-    #             'issues.worklogs.groups.Job Title': 'worklog_owner_title',
-    #             'issues.name': 'issues_name',
-    #             'issues.key': 'issues_key',
-    #             # 'issues.assignee': 'issues_assignee',
-    #             'issues.team': 'issues_team',
-    #             'issues.status': 'issues_status',
-    #             'customfield_10142': 'Parent_Key',
-    #             'customfield_10139': 'Worklog_Type',
-    #         })
-
-    #         # 移除不必要欄位
-    #         columns_to_drop = [col for col in ['issues.worklogs', 'issues','issues.worklogs.groups.user_id'] if col in df_final.columns]
-    #         df_final = df_final.drop(columns_to_drop, axis=1, errors='ignore')
-
-    #         # 計算整個專案的總工時
-    #         total_time = df_final['worklog_time_spent_hr'].sum()
-    #         total_time = round(total_time, 1)
-    #         # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
-    #         # df_final.insert(0, 'total_time_spent', total_time) 
-    #         print(f"[INFO] 專案總工時計算完成：{total_time} 小時")
-
-    #     else:
-    #         print("[WARN] 此專案沒有任何 Worklogs，建立空的 DataFrame")
-    #         df_final = pd.DataFrame(columns=expected_columns)
-    #         if not df_issues_normalized.empty:
-    #             df_final['project_key'] = df_issues_normalized['project_id']
-    #             df_final['project_name'] = df_issues_normalized['project_name']
-    #             df_final['project_category'] = df_issues_normalized['project_category']
-    #         # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
-    #         # df_final.insert(0, 'total_time_spent', 0.0)
-
-    # else:
-    #     print("[WARN] 專案中沒有任何 Issues，建立空的 DataFrame")
-    #     df_final = pd.DataFrame(columns=expected_columns)
-    #     # 在 欄位最前面（index 0） 插入新欄位：total_time_spent
-    #     # df_final.insert(0, 'total_time_spent', 0.0)
-
-    print("Step 8: 統計每位 worklog_owner 的總工時")
+    print("Step 6: [開始] 統計每位 worklog_owner 的總工時")
     if not df_final.empty:
         df_final['worklog_month'] = pd.to_datetime(df_final['worklog_start_date']).dt.strftime('%Y-%m')
 
@@ -384,8 +253,36 @@ def post_reportsByProjects(project_key):
     else:
         print("[WARN] 無 Worklog 資料，建立空的 Summary_ByMonth")
         summary_df = pd.DataFrame(columns=['worklog_owner', 'total_time_spent_hr'])
+    
+    print("Step 6: [結束] 統計每位 worklog_owner 的總工時")
 
-    print("Step 9: 輸出檔案並存入GCS")
+    # Step 3: 改欄位名稱 & 移除多餘欄位
+    df.rename(columns={
+        'worklog_groups.Executive Unit': 'worklog_owner_EU',
+        'worklog_groups.Job Level': 'worklog_owner_level',
+        'worklog_groups.Job Title': 'worklog_owner_title',
+    }, inplace=True)
+
+    columns_to_drop = [
+        'worklog_groups.user_id',
+        'worklog_owner_id',
+        'worklog_month'
+    ]
+    df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
+
+    # Step 4: 確保 worklog_start_date 是 datetime
+    if 'worklog_start_date' in df.columns:
+        df['worklog_start_date'] = pd.to_datetime(df['worklog_start_date'], errors='coerce').dt.date
+    else:
+        df['worklog_start_date'] = pd.NaT
+
+    # Step 5: 將 Parent_Key 與 Worklog_Type 移到最後
+    project_cols = [c for c in df.columns if c.startswith('project_')]
+    other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
+    final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
+    df_final = df[[c for c in final_cols if c in df.columns]] 
+
+    print("Step 7: 輸出檔案並存入GCS")
     filename = f"jiraReport_{project_name}.xlsx"
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -398,14 +295,6 @@ def post_reportsByProjects(project_key):
         output.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    # filename = f"jiraReport_{project_name}.csv"
-    # client = storage.Client()
-    # bucket = client.bucket(GCS_BUCKET)
-    # blob = bucket.blob(filename)
-    # blob.upload_from_string(
-    #     df_final.to_csv(index=False, encoding="utf-8-sig"),
-    #     content_type="text/csv; charset=utf-8"
-    # )
     print(f"[SUCCESS] 輸出檔案")
     return {"message": "Report generated", "filename": filename}
 
