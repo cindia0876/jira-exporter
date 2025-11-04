@@ -196,11 +196,11 @@ def post_reportsByProjects(project_key):
 
     print("Step 3: 取得每個 Issue 的 Worklogs")
     worklogs = []
-    # if 'issues' in project:
-    for issue in project['issues']:
-        issue_id = issue['issues_key']
-        worklogs = jira_api.get_worklog_from_issue_id(issue_id)
-        issue['worklogs'] = worklogs
+    if 'issues' in project:
+        for issue in project['issues']:
+            issue_id = issue['issues_key']
+            worklogs = jira_api.get_worklog_from_issue_id(issue_id)
+            issue['worklogs'] = worklogs
     # print(f"issues:{issues}")
     print(f"[INFO] 所有 Issue 的 Worklogs 已載入完成")
 

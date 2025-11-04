@@ -67,6 +67,47 @@ class JiraProjectAPI:
         return parsed_list
 
     # GET ISSUE
+
+    # def get_issue_from_project_id(
+    #         self,
+    #         project_id: str,
+    #         raw: bool = False
+    #     ) -> list[dict]:
+
+    #         query = {
+    #             "jql": f'project= "{project_id}"',
+    #             "fields": "summary,assignee,customfield_10001,customfield_10039"
+    #         }
+    #         url = f"{self.domain}/rest/api/3/search/jql"
+    #         response = requests.get(url, headers=self.header, params=query, auth=self.auth)
+    #         data = response.json()
+    #         print(f"[INFO] data:{data}")
+
+    #         if raw:
+    #             return data
+    #         if data.get("issues") is None:
+    #             return []
+    #         issues: list[dict] = data["issues"]
+
+    #         parsed_list = []
+    #         for issue in issues:
+    #             parsed = {}
+    #             parsed["name"] = issue["fields"].get("summary")
+    #             parsed["key"] = issue.get("key")
+    #             if issue["fields"].get("assignee"):
+    #                 parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
+    #             else:
+    #                 parsed["assignee"] = None
+    #             if issue["fields"].get("customfield_10001"):
+    #                 parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+    #             else:
+    #                 parsed["status"] = None
+    #             if issue["fields"].get("customfield_10039"):
+    #                 parsed["status"] = issue["fields"]["customfield_10039"]["value"]
+    #             else:
+    #                 parsed["status"] = None
+    #             parsed_list.append(parsed)
+    #         return parsed_list
     def get_issue_from_project_id(
         self,
         project_id: str,
@@ -86,6 +127,7 @@ class JiraProjectAPI:
             # Step 1️⃣ 組合查詢參數
             query = {
                 "jql": f'project="{project_id}" ORDER BY created ASC, key ASC',
+                # "fields": "summary,assignee,customfield_10001,customfield_10039",
                 "fields": "summary,assignee,customfield_10001,customfield_10035,customfield_10142,customfield_10139",
                 "maxResults": max_results,
                 "startAt": start_at,
@@ -152,11 +194,19 @@ class JiraProjectAPI:
         print(f"[SUCCESS] 專案 {project_id} 總共取得 {len(issues)} 筆 Issues")
         return issues
 
+
+
+
+    # worklog_owner, worklog_owner_id	worklog_start_date	worklog_time_spent_hr	worklog_comment
+
+
     global issue_id
     def get_worklog_from_issue_id(self, issue_id: str, raw: bool = False) -> list[dict]:
         url = f"{self.domain}/rest/api/3/issue/{issue_id}/worklog"
         response = requests.get(url, headers=self.header, auth=self.auth)
         data = response.json()
+        # print(f"[INFO] data: {data}")
+
         if raw:
             return data
         worklogs: list[dict] = data["worklogs"]
@@ -173,58 +223,49 @@ class JiraProjectAPI:
                 worklog["started"], "%Y-%m-%dT%H:%M:%S.%f%z"
             ).date()
             parsed["time_spent_hr"] = worklog["timeSpentSeconds"] / 3600
-            parsed["comment"] = worklog.get("comment")
+            # parsed["comment"] = worklog.get("comment")
             parsed_list.append(parsed)
         return parsed_list
 
+
+
+    # def load_groups(path: str = "GROUPS"):
+
+    #     with open(path, "r") as f:
+    #         data = GROUPS
+    #     return data
+
+    # GROUPS = load_groups()
+
+
+
     def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
-        url = f"{self.domain}/rest/api/3/user"
 
-        query = {"accountId": user_id, "expand": "groups,applicationRoles"}
-        response = requests.get(url, headers=self.header, params=query, auth=self.auth)
-        data = response.json()
-        if raw:
-            return data
 
-        user_labels = {"user_id": user_id}
-        if "groups" in data and "items" in data["groups"]:
-            user_groups = [item["name"] for item in data["groups"]["items"]]
-            for category, names in GROUPS.items():
-                for name in names:
-                    if name in user_groups:
-                        user_labels[category] = name
-        else:
-            logging.warning(f"No groups found for user ID: {user_id}")
-            user_labels["groups"] = None
+            url = f"{self.domain}/rest/api/3/user"
 
-        return user_labels
-    # def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
-    #     url = f"{self.domain}/rest/api/3/user"
-    #     query = {"accountId": user_id, "expand": "groups,applicationRoles"}
-    #     response = requests.get(url, headers=self.header, params=query, auth=self.auth)
-    #     data = response.json()
-    #     if raw:
-    #         return data
+            query = {"accountId": user_id, "expand": "groups,applicationRoles"}
+            response = requests.get(url, headers=self.header, params=query, auth=self.auth)
+            data = response.json()
 
-    #     # 初始化所有欄位為 None
-    #     user_labels = {
-    #         "user_id": user_id,
-    #         "Executive Unit": None,
-    #         "Job Level": None,
-    #         "Job Title": None
-    #     }
+            if raw:
+                return data
 
-    #     if "groups" in data and "items" in data["groups"]:
-    #         user_groups = [item["name"] for item in data["groups"]["items"]]
-    #         for category, names in GROUPS.items():
-    #             for name in names:
-    #                 if name in user_groups:
-    #                     user_labels[category] = name
-    #                     break  # 找到第一個匹配就停
-    #     else:
-    #         logging.warning(f"No groups found for user ID: {user_id}")
+            user_labels = {"user_id": user_id}
+            # groups = load_groups()
 
-    #     return user_labels
+            if "groups" in data and "items" in data["groups"]:
+                user_groups = [item["name"] for item in data["groups"]["items"]]
+                for category, names in GROUPS.items():
+                    for name in names:
+                        if name in user_groups:
+                            user_labels[category] = name
+            else:
+                logging.warning(f"No groups found for user ID: {user_id}")
+                user_labels["groups"] = None
+
+            return user_labels
+
 
 
 def process_worklogs(issue, user_data, Jira):
@@ -246,7 +287,6 @@ def process_projects(projects, user_data, Jira):
         project["issues"] = Jira.get_issue_from_project_id(project["project_key"])
         if project["issues"]:
             process_issues(project, user_data, Jira)
-
 def safe_get_value(field_dict, key):
     value = field_dict.get(key)
     if isinstance(value, dict):
