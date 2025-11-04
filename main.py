@@ -184,13 +184,13 @@ def post_reportsByProjects(project_key):
     print(f"Fetching information By {project_key}")
 
     print(f"Step 1: 取得專案基本資訊")
-    project = Jira.get_one_project(project_key)[0]
+    project = jira_api.get_one_project(project_key)[0]
     project_name = project['project_name']
     project_id = project['project_key']
     print(f"[INFO] 專案名稱：{project_name}, 專案 ID：{project_id}")
 
     print("Step 2: 取得該專案的所有 Issues")
-    issues = Jira.get_issue_from_project_id(project_id)
+    issues = jira_api.get_issue_from_project_id(project_id)
     project['issues'] = issues
     print(f"[INFO] 已取得 {len(issues)} 筆 issue")
 
@@ -199,7 +199,7 @@ def post_reportsByProjects(project_key):
     # if 'issues' in project:
     for issue in project['issues']:
         issue_id = issue['issues_key']
-        worklogs = Jira.get_worklog_from_issue_id(issue_id)
+        worklogs = jira_api.get_worklog_from_issue_id(issue_id)
         issue['worklogs'] = worklogs
     # print(f"issues:{issues}")
     print(f"[INFO] 所有 Issue 的 Worklogs 已載入完成")
@@ -209,7 +209,7 @@ def post_reportsByProjects(project_key):
         if 'worklogs' in issue:
             for worklog in issue['worklogs']:
                 user_id = worklog['owner_id']
-                groups = Jira.get_user_group_info_from_user_id(user_id)
+                groups = jira_api.get_user_group_info_from_user_id(user_id)
                 worklog['groups'] = groups
     print("[INFO] 使用者群組資訊已附加到每筆 Worklog")
 
