@@ -43,14 +43,14 @@ https://jira-exporter-1075612823060.asia-east1.run.app/reports/projects?project_
 ### 2️⃣ 建立 Cloud Run Service
 1. 選擇 建立服務
 2. 選擇 連接 GitHub Repo（可設定自動部署 Trigger）。
-4. 設定 Buildpacks 部署：
+3. 設定 Buildpacks 部署：
     | 欄位                         | 設定值  |
     | --------------------------- | -------|
     | **Build context directory** | `/`    |
     | **Entrypoint**              | 留空 ✅ |
     | **Function target**         | 留空 ✅ |
-6. 指定剛剛建立的 🔑 Service Account。
-7. 設定環境變數:
+4. 指定剛剛建立的 🔑 Service Account。
+5. 設定環境變數:
     | 變數名稱                    | 範例值                          |
     | ------------------------  | ------------------------------- |
     | `GCS_BUCKET`              | `my-jira-reports`               |

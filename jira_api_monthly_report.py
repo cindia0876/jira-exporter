@@ -68,7 +68,8 @@ class JiraMonthlyAPI:
             if issue["fields"].get("customfield_10001"):
                 parsed["team"] = issue["fields"]["customfield_10001"]["name"]
             else:
-                parsed["status"] = None
+                parsed["team"] = None
+                
             if issue["fields"].get("customfield_10035"):
                 parsed["status"] = issue["fields"]["customfield_10035"]["value"]
             else:
@@ -123,7 +124,7 @@ class JiraMonthlyAPI:
 
         user_labels = {"user_id": user_id}
         groups = GROUPS
-
+        
         if "groups" in data and "items" in data["groups"]:
             user_groups = [item["name"] for item in data["groups"]["items"]]
             for category, names in groups.items():

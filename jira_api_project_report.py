@@ -20,9 +20,9 @@ GROUPS = {
         "SEA"
     ],
     "Job Level": [
-        "L1",
-        "L2",
-        "L3"
+        "TWO1",
+        "TWO2",
+        "TWO3"
     ],
     "Job Title": [
         "SA",
@@ -58,7 +58,7 @@ class JiraProjectAPI:
         parsed_list = []
         parsed = {}
         parsed["project_name"] = data.get("name")
-        parsed["project_id"] = data.get("key")
+        parsed["project_key"] = data.get("key")
         if data.get("projectCategory"):
             parsed["project_category"] = data.get("projectCategory")["name"]
         else:
@@ -78,8 +78,10 @@ class JiraProjectAPI:
         Get all issues from a given Jira project (with pagination support).
         """
         print(f"[INFO] 開始取得專案 {project_id} 的 Issues（含分頁）")
+
         issues = []
         next_page_token = None
+
         while True:
             # Step 1️⃣ 組合查詢參數
             query = {
@@ -111,29 +113,32 @@ class JiraProjectAPI:
                 print(f"[INFO] 開始解析 Issues（目前 startAt={start_at}）")
 
                 for issue in data.get("issues", []):
-                    parsed = {}
-                    parsed["name"] = issue["fields"].get("summary")
-                    parsed["key"] = issue.get("key")
 
-                    if issue["fields"].get("assignee"):
-                        parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
-                    else:
-                        parsed["assignee"] = None
+                    parsed = {}
+                    parsed["issues_name"] = issue["fields"].get("summary")
+                    parsed["issues_key"] = issue.get("key")
+
+                    # if issue["fields"].get("assignee"):
+                    #     parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
+                    # else:
+                    #     parsed["assignee"] = None
 
                     if issue["fields"].get("customfield_10001"):
-                        parsed["team"] = issue["fields"]["customfield_10001"]["name"]
+                        parsed["issues_team"] = issue["fields"]["customfield_10001"]["name"]
                     else:
-                        parsed["team"] = None
-
+                        parsed["issues_team"] = None
+                    
                     if issue["fields"].get("customfield_10035"):
-                        parsed["status"] = issue["fields"]["customfield_10035"]["value"]
+                        parsed["issues_status"] = issue["fields"]["customfield_10035"]["value"]
                     else:
-                        parsed["status"] = None
+                        parsed["issues_status"] = None
                     
                     # 抓取客製化欄位 10142 和 10139 的值
-                    parsed["customfield_10142"] = issue["fields"].get("customfield_10142")
-                    parsed["customfield_10139"] = safe_get_value(issue["fields"], "customfield_10139")
+                    parsed["Parent_Key"] = issue["fields"].get("customfield_10142")
+                    parsed["Worklog_Type"] = safe_get_value(issue["fields"], "customfield_10139")
+
                     parsed_list.append(parsed)
+
                 issues.extend(parsed_list)
                 print(f"[INFO] 結束解析 Issues，本頁共 {len(parsed_list)} 筆")
 
@@ -143,11 +148,13 @@ class JiraProjectAPI:
                 break
 
             start_at += max_results
+
+        print(f"[SUCCESS] 專案 {project_id} 總共取得 {len(issues)} 筆 Issues")
         return issues
 
     global issue_id
     def get_worklog_from_issue_id(self, issue_id: str, raw: bool = False) -> list[dict]:
-        url = f"{self.domain}/rest/api/2/issue/{issue_id}/worklog"
+        url = f"{self.domain}/rest/api/3/issue/{issue_id}/worklog"
         response = requests.get(url, headers=self.header, auth=self.auth)
         data = response.json()
         if raw:
