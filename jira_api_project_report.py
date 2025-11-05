@@ -67,47 +67,6 @@ class JiraProjectAPI:
         return parsed_list
 
     # GET ISSUE
-
-    # def get_issue_from_project_id(
-    #         self,
-    #         project_id: str,
-    #         raw: bool = False
-    #     ) -> list[dict]:
-
-    #         query = {
-    #             "jql": f'project= "{project_id}"',
-    #             "fields": "summary,assignee,customfield_10001,customfield_10039"
-    #         }
-    #         url = f"{self.domain}/rest/api/3/search/jql"
-    #         response = requests.get(url, headers=self.header, params=query, auth=self.auth)
-    #         data = response.json()
-    #         print(f"[INFO] data:{data}")
-
-    #         if raw:
-    #             return data
-    #         if data.get("issues") is None:
-    #             return []
-    #         issues: list[dict] = data["issues"]
-
-    #         parsed_list = []
-    #         for issue in issues:
-    #             parsed = {}
-    #             parsed["name"] = issue["fields"].get("summary")
-    #             parsed["key"] = issue.get("key")
-    #             if issue["fields"].get("assignee"):
-    #                 parsed["assignee"] = issue["fields"]["assignee"]["displayName"]
-    #             else:
-    #                 parsed["assignee"] = None
-    #             if issue["fields"].get("customfield_10001"):
-    #                 parsed["team"] = issue["fields"]["customfield_10001"]["name"]
-    #             else:
-    #                 parsed["status"] = None
-    #             if issue["fields"].get("customfield_10039"):
-    #                 parsed["status"] = issue["fields"]["customfield_10039"]["value"]
-    #             else:
-    #                 parsed["status"] = None
-    #             parsed_list.append(parsed)
-    #         return parsed_list
     def get_issue_from_project_id(
         self,
         project_id: str,
@@ -176,8 +135,8 @@ class JiraProjectAPI:
                         parsed["issues_status"] = None
                     
                     # 抓取客製化欄位 10142 和 10139 的值
-                    parsed["Parent_Key"] = issue["fields"].get("customfield_10142")
-                    parsed["Worklog_Type"] = safe_get_value(issue["fields"], "customfield_10139")
+                    # parsed["Parent_Key"] = issue["fields"].get("customfield_10142")
+                    # parsed["Worklog_Type"] = safe_get_value(issue["fields"], "customfield_10139")
 
                     parsed_list.append(parsed)
 
@@ -194,18 +153,11 @@ class JiraProjectAPI:
         print(f"[SUCCESS] 專案 {project_id} 總共取得 {len(issues)} 筆 Issues")
         return issues
 
-
-
-
-    # worklog_owner, worklog_owner_id	worklog_start_date	worklog_time_spent_hr	worklog_comment
-
-
     global issue_id
     def get_worklog_from_issue_id(self, issue_id: str, raw: bool = False) -> list[dict]:
         url = f"{self.domain}/rest/api/3/issue/{issue_id}/worklog"
         response = requests.get(url, headers=self.header, auth=self.auth)
         data = response.json()
-        # print(f"[INFO] data: {data}")
 
         if raw:
             return data
@@ -223,21 +175,8 @@ class JiraProjectAPI:
                 worklog["started"], "%Y-%m-%dT%H:%M:%S.%f%z"
             ).date()
             parsed["time_spent_hr"] = worklog["timeSpentSeconds"] / 3600
-            # parsed["comment"] = worklog.get("comment")
             parsed_list.append(parsed)
         return parsed_list
-
-
-
-    # def load_groups(path: str = "GROUPS"):
-
-    #     with open(path, "r") as f:
-    #         data = GROUPS
-    #     return data
-
-    # GROUPS = load_groups()
-
-
 
     def get_user_group_info_from_user_id(self, user_id: str, raw: bool = False) -> dict:
 
@@ -252,8 +191,6 @@ class JiraProjectAPI:
                 return data
 
             user_labels = {"user_id": user_id}
-            # groups = load_groups()
-
             if "groups" in data and "items" in data["groups"]:
                 user_groups = [item["name"] for item in data["groups"]["items"]]
                 for category, names in GROUPS.items():
@@ -265,8 +202,6 @@ class JiraProjectAPI:
                 user_labels["groups"] = None
 
             return user_labels
-
-
 
 def process_worklogs(issue, user_data, Jira):
     for worklog in issue["worklogs"]:
@@ -287,8 +222,9 @@ def process_projects(projects, user_data, Jira):
         project["issues"] = Jira.get_issue_from_project_id(project["project_key"])
         if project["issues"]:
             process_issues(project, user_data, Jira)
-def safe_get_value(field_dict, key):
-    value = field_dict.get(key)
-    if isinstance(value, dict):
-        return value.get("value")
-    return None
+
+# def safe_get_value(field_dict, key):
+#     value = field_dict.get(key)
+#     if isinstance(value, dict):
+#         return value.get("value")
+#     return None

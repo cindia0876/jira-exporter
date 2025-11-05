@@ -278,8 +278,10 @@ def post_reportsByProjects(project_key):
 
     # Step 5: 將 Parent_Key 與 Worklog_Type 移到最後
     project_cols = [c for c in df.columns if c.startswith('project_')]
-    other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
-    final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
+    # other_cols = [c for c in df.columns if c not in project_cols + ['Parent_Key', 'Worklog_Type']]
+    other_cols = [c for c in df.columns if c not in project_cols]
+    # final_cols = project_cols + other_cols + ['Parent_Key', 'Worklog_Type']
+    final_cols = project_cols + other_cols
     df_final = df[[c for c in final_cols if c in df.columns]] 
 
     print("Step 7: 輸出檔案並存入GCS")
